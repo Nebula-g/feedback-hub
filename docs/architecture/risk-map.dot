@@ -1,0 +1,82 @@
+// Feedback Hub — 风险簇 → 受影响架构元素 影响图
+// risk-quality-reviewer + graphviz · 2026-11-02 · 基线 ad2c9ae
+// 分数 = probability × impact (1-5); 红≥16 橙8-15 绿<8
+// 阅读顺序：左侧风险簇 → 右侧受影响容器/质量属性；虚线=推断影响(需压测或补测试验证)
+digraph "risk-map" {
+    rankdir=TB; nodesep=0.3; ranksep=0.7;
+    fontname="Microsoft YaHei"; labelloc=t; fontsize=15;
+    label="Feedback Hub 风险簇与影响路径（2026-11-02）\n红=高优先 橙=中 绿=低 ｜ 虚线=规模相关推断";
+    node [fontname="Microsoft YaHei", fontsize=10];
+    edge [fontname="Microsoft YaHei", fontsize=8];
+
+    // ── 风险簇（菱形）──────────────────────────────
+    subgraph cluster_risks {
+        label="风险簇"; style=dashed; color="#999999"; fontsize=11;
+
+        RA [shape=diamond, style=filled, fillcolor="#ef9a9a",
+            label="R-01 JWT密钥明文提交 (P4×I5=20)\nR-06 Swagger无鉴权全开 (12)\nR-11 登录无频率限制 (9)\nR-13 CORS写死/无CSP (9)\nR-15 口令明文 (8)"];
+        RB [shape=diamond, style=filled, fillcolor="#ef9a9a",
+            label="R-02 后端零测试 (P5×I4=20)\nR-03 ai/logs 前后端口径不一致 (10)\nR-10 测试脚本未接CI+脏库 (12)"];
+        RC [shape=diamond, style=filled, fillcolor="#ffcc80",
+            label="R-07 AI生成同步长请求 (12)\nR-08 related_feedback_ids 存JSON (12)\nR-05 SQL全环境打印 (12)\nR-12 日志无保留期 (9)"];
+        RD [shape=diamond, style=filled, fillcolor="#ffcc80",
+            label="R-09 无健康检查/指标 (12)\nR-14 profiles.active写死+空dev.yml (6)\nR-16 FileController 无角色限制 (6)\nR-17 临时文件/未提交目录 (3)"];
+        RE [shape=diamond, style=filled, fillcolor="#ffcc80",
+            label="R-04 依赖停留2024年\nBoot 3.2.5 / MP 3.5.7 /\nspringdoc 2.5.0 (P4×I4=16)"];
+    }
+
+    // ── 受影响架构元素 ─────────────────────────────
+    subgraph elements {
+        label="受影响的架构元素（当前态模型）"; style=filled; fillcolor="#eceff1"; fontsize=11;
+        sec  [label="security/ + config/\nSecurityConfig:72,124-132\nJwtTokenProvider", shape=box, fillcolor="#e3f2fd"];
+        api  [label="后端单体 :8081\ncontroller×7\nAiController:141", shape=box, fillcolor="#e3f2fd"];
+        orch [label="AiCandidateServiceImpl\n编排+降级+留证\n:108-165, :565-580", shape=box, fillcolor="#ffe0b2"];
+        fe   [label="前端 SPA\nrouter/index.js:103\nstores/user.js(localStorage)", shape=box, fillcolor="#c8e6c9"];
+        db   [label="MySQL feedback_hub\nschema.sql:114-133 (JSON列)\n:85 ai_generation_log", shape=cylinder, fillcolor="#ffe0b2"];
+        dep  [label="pom.xml / package.json\nBoot 3.2.5 依赖树", shape=box, fillcolor="#e1bee7"];
+        ops  [label="Nginx + start.bat\n本机单机部署", shape=box, fillcolor="#b3e5fc"];
+    }
+
+    // ── 质量属性 ───────────────────────────────────
+    subgraph qa {
+        label="质量属性"; style=filled; fillcolor="#f5f5f5"; fontsize=11;
+        q_sec [label="安全性", fillcolor="#fce4ec"];
+        q_test[label="可测试性/回归保护", fillcolor="#fce4ec"];
+        q_perf[label="性能/可扩展性", fillcolor="#fff8e1"];
+        q_obs [label="可观测性/运维", fillcolor="#fff8e1"];
+        q_mnt [label="可维护性", fillcolor="#fff8e1"];
+    }
+
+    // 簇 → 元素
+    RA -> sec  [label="直接命中：密钥/白名单/CORS 全在此"];
+    RA -> fe   [label="token 存储 + 无 CSP"];
+    RB -> api  [label="权限注解无测试覆盖"];
+    RB -> fe   [label="路由 meta.roles 与后端漂移"];
+    RC -> orch [label="生成路径同步 + 内存聚合"];
+    RC -> db   [label="JSON 列 → 无法 SQL 查询"];
+    RE -> dep  [label="版本老化"];
+    RD -> ops  [label="无存活判定/指标"];
+    RD -> api  [label="FileController 最小权限", style=dashed];
+
+    // 元素 → 质量属性
+    sec  -> q_sec;
+    api  -> q_test;
+    fe   -> q_sec;
+    orch -> q_perf;
+    db   -> q_perf;
+    db   -> q_mnt;
+    dep  -> q_sec;
+    dep  -> q_mnt;
+    ops  -> q_obs;
+
+    // 簇 → 质量属性（汇总）
+    RA -> q_sec [color="#b71c1c", penwidth=2];
+    RB -> q_test [color="#b71c1c", penwidth=2];
+    RC -> q_perf [color="#e65100", style=dashed, label="规模相关"];
+    RE -> q_sec [color="#e65100"];
+    RD -> q_obs [color="#e65100"];
+
+    // 关键因果：零测试导致了口径 bug
+    RB -> RA [style=dotted, constraint=false, color="#9e9e9e",
+              label="因果：无权限测试\n→ R-03 漂移未被拦截\n(ad2c9ae 已对齐一次却漏了 logs)"];
+}

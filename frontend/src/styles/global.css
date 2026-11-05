@@ -1,0 +1,223 @@
+/**
+ * 全局样式（浅色 · 玻璃拟态）
+ *
+ * <p>只放四类内容：
+ * <ol>
+ *   <li>设计令牌（CSS 变量）—— 全站色值唯一来源</li>
+ *   <li>浏览器默认样式的重置</li>
+ *   <li>Naive UI 组件库无法通过 themeOverrides 表达的效果（毛玻璃、多层阴影）</li>
+ *   <li>少量跨页面复用的工具类</li>
+ * </ol>
+ *
+ * <p><b>刻意不放什么</b>：不放页面级布局样式。
+ * 页面样式一律写在 .vue 的 scoped 块里，
+ * 避免全局污染导致"改一处崩三页"。
+ */
+
+/* ==================== 设计令牌 ====================
+ *
+ * 与 src/theme.js 中的 colors 一一对应。
+ * 组件内写样式时优先用变量而不是字面量，
+ * 这样后续再调整主题（比如加深玻璃浓度）只改这一处。
+ */
+:root {
+  /* 背景与容器 */
+  --c-canvas: #eef1fb;
+  --c-surface: rgba(255, 255, 255, 0.72);
+  --c-surface-strong: rgba(255, 255, 255, 0.9);
+  --c-fill: rgba(255, 255, 255, 0.86);
+  --c-border: rgba(255, 255, 255, 0.72);
+  --c-border-soft: rgba(122, 136, 190, 0.18);
+  --c-divider: rgba(122, 136, 190, 0.12);
+
+  /* 文本 */
+  --c-text-1: #252a41;
+  --c-text-2: #5d6478;
+  --c-text-3: #8b92a7;
+
+  /* 品牌色 */
+  --c-primary: #6c7bf5;
+  --c-primary-hover: #7d8bf8;
+  --c-accent: #a78bfa;
+  --c-primary-soft: rgba(108, 123, 245, 0.12);
+
+  /* 语义色 */
+  --c-success: #33ad74;
+  --c-warning: #e0902f;
+  --c-danger: #e2556b;
+
+  /* 阴影：两层叠加，近距离有接触感、远距离有悬浮感 */
+  --shadow-card: 0 18px 46px -22px rgba(74, 89, 168, 0.32),
+    0 2px 8px rgba(74, 89, 168, 0.05);
+  --shadow-float: 0 24px 60px -28px rgba(74, 89, 168, 0.38),
+    0 4px 14px rgba(74, 89, 168, 0.06);
+  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+
+  /* 圆角 */
+  --radius-card: 20px;
+  --radius-input: 12px;
+
+  /* 毛玻璃 */
+  --glass-blur: blur(22px) saturate(160%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  /* 兜底底色：极光背景未加载完成时也不会闪白/闪黑 */
+  background:
+    linear-gradient(160deg, #f3f6ff 0%, #eef0fe 42%, #f6f1ff 100%);
+  color: var(--c-text-1);
+  font-family: 'Source Han Sans SC', 'Noto Sans SC', 'PingFang SC',
+    'Microsoft YaHei', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#app {
+  height: 100%;
+}
+
+/* ---------- Naive UI 布局兜底 ----------
+ *
+ * App.vue 里四层 Provider（loading-bar / dialog / notification / message）
+ * 的包装链中有一层 display:flex 的容器，n-config-provider 作为它的
+ * flex 子项会按内容宽度收缩——整页布局跟着缩成中间一条。
+ * 这里强制它铺满父容器，一次修复所有页面。
+ */
+.n-config-provider {
+  width: 100%;
+  height: 100%;
+}
+
+a {
+  color: var(--c-primary);
+  text-decoration: none;
+}
+
+::selection {
+  background: rgba(108, 123, 245, 0.22);
+}
+
+/* ==================== 毛玻璃卡片 ====================
+ *
+ * 为什么直接覆盖 .n-card 而不是要求每个页面加 class：
+ * 全站 39 处 n-card 里只有一部分带 .app-card，
+ * 靠"记得加 class"迟早漏掉几处，漏掉的那张就是一块不透明的白板，
+ * 在动态背景上格外突兀。统一在这里定义，任何 n-card 都自动继承。
+ *
+ * 背景色与描边交给 themeOverrides.Card（走 Naive 自己的 --n-color 变量），
+ * 这里只补它不支持的三样：模糊、多层阴影、内高光。
+ * 这样不会和组件库注入的样式抢同一批声明，避免"谁的规则最后生效"的隐式依赖。
+ */
+.n-card {
+  box-shadow: var(--shadow-card), var(--shadow-inset);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+}
+
+/* 卡片内的表格区不需要再叠一层玻璃，否则发灰 */
+.n-card .n-card {
+  box-shadow: none;
+}
+
+/* ==================== 弹窗卡片限高 ====================
+ * 给 n-modal 的卡片加 class（如 .confirm-modal）即可启用：
+ * header / footer 固定，内容区超出视口时滚动，不再把底部按钮撑出屏幕。
+ * 注意：必须写在 global.css（非 scoped）——n-modal 内部走 Teleport，
+ * 父组件的 scoped data-v 属性不会透传到卡片根元素，scoped 样式会静默失效。
+ */
+.n-modal.confirm-modal {
+  max-height: calc(100vh - 48px);
+}
+
+.n-modal.confirm-modal > .n-card-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* 拆分弹窗：部分数量由 PM 决定，内容高度不可预估，同样需要限高 + 内容区滚动 */
+.n-modal.split-modal {
+  max-height: calc(100vh - 48px);
+}
+
+.n-modal.split-modal > .n-card-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* ==================== 滚动条：细、浅、几乎无存在感 ==================== */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(122, 136, 190, 0.22);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(122, 136, 190, 0.38);
+  background-clip: content-box;
+}
+
+/* ==================== 工具类 ==================== */
+
+/** 文本省略 */
+.text-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/** 等宽字体（用于编号、代码类文本） */
+.text-mono {
+  font-family: 'JetBrains Mono', 'SF Mono', Menlo, Consolas, 'Courier New', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/** 通用玻璃容器（侧边栏、顶栏等非卡片元素用） */
+.glass {
+  background-color: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+}
+
+/**
+ * 页面容器：统一内边距 + 统一限宽
+ *
+ * <p>为什么统一限宽而不是各页面自己控制：
+ * 之前录入反馈页内部限 860px、列表/看板页不限宽，
+ * 来回切换页面时内容区宽度跳变，观感割裂。
+ * 现在的策略：窄窗口下自然铺满整个内容区，
+ * 宽窗口下居中限宽，所有页面宽度策略完全一致。
+ */
+.page-container {
+  width: 100%;
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 20px 28px 28px;
+}
+
+/** 兼容旧写法：与 .n-card 共用同一套玻璃外观 */
+.app-card {
+  border-radius: var(--radius-card);
+}

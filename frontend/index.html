@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>反馈改进助手 | Feedback Hub</title>
+    <style>
+      /* 首屏加载时的占位样式，避免 Vue 挂载前出现白屏闪烁 */
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: #0b0d12;
+        color: #8b90a0;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+          'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+      }
+      #app {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        font-size: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">正在加载…</div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

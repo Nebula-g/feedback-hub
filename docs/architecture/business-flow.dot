@@ -1,0 +1,54 @@
+// Feedback Hub — 核心业务闭环：反馈 → AI 归并 → PM 确认 → 任务 → 验证
+// 生成: system-modeler + flow 视图（graphviz DOT, rankdir=TB）
+// 所有节点/边均有代码证据，见 system-model.evidence.md；实线=已证实行为
+digraph "feedback-to-closure-flow" {
+    rankdir=TB;
+    nodesep=0.4; ranksep=0.6;
+    fontname="Microsoft YaHei"; labelloc=t;
+    label="企业报销软件反馈改进闭环（当前态 · 证据支撑）\n绿色=人员动作 蓝色=系统/数据 橙色=AI 灰色=留证";
+    node [fontname="Microsoft YaHei", fontsize=11];
+    edge [fontname="Microsoft YaHei", fontsize=9];
+
+    // 角色
+    CS [shape=box, style=filled, fillcolor="#c8e6c9", label="客服 (CS)\nFeedbackController\nPOST /api/feedbacks"];
+    PM [shape=box, style=filled, fillcolor="#c8e6c9", label="产品经理 (PM)\nAiController /api/ai/**\nIssueController /api/issues"];
+    DEV [shape=box, style=filled, fillcolor="#c8e6c9", label="开发测试 (DEV)\nTaskController\nPUT /api/tasks/{id}/status"];
+
+    // 数据/系统节点
+    FB [shape=cylinder, style=filled, fillcolor="#bbdefb", label="feedback 表\n原始反馈（只读，\n无正文修改接口）"];
+    CAND [shape=cylinder, style=filled, fillcolor="#ffe0b2", label="ai_candidate_issue\nAI 候选卡片（草稿）\nstatus: DRAFT→CONFIRMED/REJECTED\n@Version 乐观锁"];
+    ISS [shape=cylinder, style=filled, fillcolor="#bbdefb", label="issue 正式问题表\n+ feedback_issue_link\n（反馈↔问题多对多）"];
+    TASK [shape=cylinder, style=filled, fillcolor="#bbdefb", label="improvement_task\n优先级由 PM 手选\n（AI 不输出优先级）"];
+    EV [shape=cylinder, style=filled, fillcolor="#eeeeee", label="task_event\n流转时间线\n（append-only）"];
+    LOG [shape=cylinder, style=filled, fillcolor="#eeeeee", label="ai_generation_log\n输入快照/返回原文/耗时/状态\n（append-only 证据链）"];
+    AIN [shape=box3d, style=filled, fillcolor="#ffe0b2", label="AI 编排 AiCandidateServiceImpl\n提取→聚类(不跨模块)→起草"];
+    RULE [shape=box, style=filled, fillcolor="#e1bee7", label="RuleAiServiceImpl\n关键词+模板，断网可用"];
+    LLM [shape=box, style=filled, fillcolor="#e1bee7", label="LlmAiServiceImpl\nOpenAI 兼容 HTTP"];
+
+    // 主流程
+    CS -> FB [label="1 录入/批量导入\n(UI 上传截图→/api/files/upload)"];
+    PM -> AIN [label="2 触发归并\nPOST /api/ai/candidates/generate"];
+    AIN -> RULE [label="默认 provider=RULE"];
+    AIN -> LLM [label="AI_PROVIDER=llm 时首选"];
+    LLM -> RULE [style=dashed, label="失败/超时/垃圾返回\n自动降级 status=FALLBACK"];
+    AIN -> CAND [label="3 写入草稿卡片\n(草稿与事实物理分离)"];
+    AIN -> LOG [label="每次调用全量落库"];
+    CAND -> PM [label="4 查看候选卡片\nGET /api/ai/candidates"];
+    PM -> ISS [label="5a 确认\nPOST /candidates/{id}/confirm\nIssueService.confirmFromCandidate\n(事务+乐观锁)"];
+    PM -> CAND [label="5b 驳回\nPOST /candidates/{id}/reject\n→REJECTED"];
+    CAND -> FB [style=dashed, label="驳回后关联反馈\n回到未归类(resetFeedbackIfNoIssue)"];
+    PM -> TASK [label="6 建任务并指派\nPOST /api/tasks (PM)\nPUT /{id}/priority|assignee"];
+    ISS -> TASK [label="任务挂靠问题"];
+    DEV -> TASK [label="7 推进状态\nTODO→IN_PROGRESS→\nPENDING_VERIFY→DONE\n(可 WONT_DO 关闭)"];
+    TASK -> EV [label="8 每次流转追加事件"];
+    EV -> PM [style=dashed, label="GET /api/tasks/{id}/events\n闭环可追溯回看"];
+
+    // 反馈归类状态回写（confirm/reject 路径由 AiCandidateServiceImpl 内 feedbackMapper.updateById 证实）
+    ISS -> FB [style=dashed, label="feedback.status 回写\n(归类状态流转)"];
+
+    subgraph cluster_ai_redline {
+        label="AI 三条红线（README §二，代码证实）";
+        style=dashed; color="#999999"; fontsize=10;
+        CAND; LOG; RULE; LLM; AIN;
+    }
+}

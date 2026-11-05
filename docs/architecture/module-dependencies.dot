@@ -1,0 +1,52 @@
+// Feedback Hub — 模块依赖图（后端包级 + 前端模块），当前态
+// 证据：Java import 关系与 REST 调用路径（见 system-model.evidence.md）
+digraph "module-dependencies" {
+    rankdir=TB; nodesep=0.35; ranksep=0.55;
+    fontname="Microsoft YaHei"; labelloc=t;
+    label="模块依赖图（包/模块粒度 · import 与 HTTP 证据）";
+    node [fontname="Microsoft YaHei", fontsize=10, style=filled];
+    edge [fontname="Microsoft YaHei", fontsize=8];
+
+    subgraph cluster_frontend {
+        label="frontend/ (Vue 3 SPA)"; style=filled; fillcolor="#f1f8e9";
+        fe_router   [label="router/index.js\n路由+roles 守卫(前端侧)"];
+        fe_stores   [label="stores/user.js\nPinia: token+角色"];
+        fe_api      [label="api/*.js\nrequest.js 统一挂 JWT"];
+        fe_views    [label="views/ 12 页面\nfeedback/ issue/ task/ ai/"];
+        fe_views -> fe_api;
+        fe_api -> fe_stores [label="取 token"];
+        fe_router -> fe_stores [label="守卫读取"];
+        fe_router -> fe_views [label="挂载"];
+    }
+
+    subgraph cluster_backend {
+        label="backend/ (Spring Boot 单体 :8081)"; style=filled; fillcolor="#e3f2fd";
+        be_ctrl [label="controller/ ×7\n方法级 @PreAuthorize"];
+        be_sec  [label="security/\nJwtFilter+TokenProvider"];
+        be_svc  [label="service/ 接口层"];
+        be_impl [label="service/impl/\nAiCandidateServiceImpl(编排:\nprovider选择+FALLBACK降级+留证)\nRule/Llm 双实现 · Issue/Task/\nFeedback/Auth/User · FileStorage×2\n注: AiCandidateServiceImpl.confirm →\nIssueService.confirmFromCandidate\n(候选→正式问题, 事务+乐观锁)"];
+        be_map  [label="mapper/ ×8\nMyBatis-Plus"];
+        be_ent  [label="entity/ ×8 + enums/ ×11"];
+        be_dto  [label="dto/ + vo/ + common/(R,PageResult)"];
+        be_cfg  [label="config/\nSecurityConfig·AiProperties\n·StorageProperties·MybatisPlus"];
+        be_ctrl -> be_svc;
+        be_ctrl -> be_sec [label="UserContext 取当前用户"];
+        be_svc -> be_impl [dir=back label="接口实现"];
+        be_impl -> be_map;
+        be_impl -> be_ent;
+        be_impl -> be_dto;
+        be_map -> be_ent [label="ORM 映射"];
+        be_cfg -> be_sec;
+    }
+
+    fe_api -> be_ctrl [label="HTTP /api/**\n(dev: Vite proxy · prod: Nginx)"];
+
+    be_impl -> ext_llm [label="仅 AI_PROVIDER=llm\nJDK HttpClient", style=dashed, constraint=true];
+    ext_llm [shape=ellipse, label="外部大模型 API\n(DeepSeek 兼容端点)", fillcolor="#999999", fontcolor="#ffffff"];
+
+    be_map -> db [label="JDBC", constraint=true];
+    db [shape=cylinder, label="MySQL 3308\nfeedback_hub · 8 表", fillcolor="#ffe0b2"];
+
+    be_impl -> up [label="LocalFileStorageService", constraint=true];
+    up [shape=folder, label="本地 uploads/ 目录", fillcolor="#eeeeee"];
+}

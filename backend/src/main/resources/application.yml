@@ -1,0 +1,169 @@
+# ============================================================================
+# 企业报销软件用户反馈与功能改进助手 —— 主配置文件
+# ============================================================================
+
+server:
+  port: 8081                    # 后端端口（Nginx 将 /api 反代到此端口）
+  servlet:
+    context-path: /
+
+spring:
+  profiles:
+    active: dev
+
+  application:
+    name: feedback-hub
+
+  # ---------------- 数据库配置 ----------------
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    # 注意：本机 MySQL 实例监听在 3308 端口（不是默认 3306），
+    # 3306 上另有一个密码未知的实例。部署到其他机器时改回 3306 即可。
+    # 注意 characterEncoding 必须写 Java 认识的字符集名：UTF-8。
+    # 写成 utf8mb4 会抛 UnsupportedEncodingException——
+    # Connector/J 8 会把 UTF-8 自动映射到 MySQL 的 utf8mb4，无需手写。
+    url: jdbc:mysql://127.0.0.1:3308/feedback_hub?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
+    # 数据库口令不写进代码库：优先读环境变量；本地开发把真实口令写在
+    # application-dev.yml（该文件已被 .gitignore 忽略，仅存在于本机）。
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 20
+      connection-timeout: 30000
+
+  # ---------------- 文件上传 ----------------
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 50MB
+
+  # ---------------- Jackson ----------------
+  jackson:
+    default-property-inclusion: non_null
+    time-zone: Asia/Shanghai
+    date-format: yyyy-MM-dd HH:mm:ss
+
+# ============================================================================
+# MyBatis-Plus 配置
+# ============================================================================
+mybatis-plus:
+  configuration:
+    # 开启驼峰命名自动映射：create_time -> createTime
+    map-underscore-to-camel-case: true
+    # 打印 SQL 日志（开发环境便于调试，生产请关闭）
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      # 主键策略：数据库自增
+      id-type: auto
+      # 逻辑删除字段名
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+  # XML 映射文件位置
+  mapper-locations: classpath*:/mapper/**/*.xml
+  # 实体类别名包
+  type-aliases-package: com.company.feedback.entity
+
+# ============================================================================
+# JWT 配置
+# ============================================================================
+jwt:
+  # 密钥不写进代码库：优先读环境变量 JWT_SECRET；下面的默认值仅用于本地开发
+  secret: ${JWT_SECRET:feedback-hub-dev-only-secret-change-me}
+  # 过期时间（毫秒）：8 小时
+  expiration: 28800000
+  # 请求头名称
+  header: Authorization
+  # Token 前缀
+  prefix: "Bearer "
+
+# ============================================================================
+# 文件存储配置
+# ============================================================================
+storage:
+  # 存储类型：local-本地磁盘  oss-阿里云对象存储
+  # 开发调试建议用 local（无需密钥、断网可用）；演示时切换为 oss
+  type: local
+
+  # --------- 本地存储（type=local 时生效）---------
+  local:
+    # 文件存放根目录（请使用绝对路径）
+    root-path: D:/feedback-data/uploads
+    # 对外访问前缀
+    # 默认指后端（8081），保证"只有后端、没有 Nginx"时图片也能显示；
+    # 生产部署后改为 http://localhost:8080/uploads/ 由 Nginx 直出静态文件，性能更好。
+    url-prefix: http://localhost:8081/uploads/
+
+  # --------- 阿里云 OSS（type=oss 时生效）---------
+  # ⚠️ 当前为占位符，请填写后使用；切勿提交真实密钥到代码库
+  oss:
+    endpoint: ${OSS_ENDPOINT:oss-cn-hangzhou.aliyuncs.com}
+    access-key-id: ${OSS_ACCESS_KEY_ID:YOUR_ACCESS_KEY_ID}
+    access-key-secret: ${OSS_ACCESS_KEY_SECRET:YOUR_ACCESS_KEY_SECRET}
+    bucket-name: ${OSS_BUCKET_NAME:your-bucket-name}
+    url-prefix: ${OSS_URL_PREFIX:https://your-bucket.oss-cn-hangzhou.aliyuncs.com/}
+
+# ============================================================================
+# AI 配置（挑战赛道核心）
+# ============================================================================
+ai:
+  # 实现类型：llm-真实大模型  rule-本地规则兜底
+  #
+  # ⚠️ 默认取 rule，保证"开箱即用、断网可用"。
+  #    想走真实大模型：把这里改成 llm，并在下方填写 api-key
+  #    （更推荐设置环境变量 AI_API_KEY，密钥不进代码库）。
+  #
+  # ⚠️ 关键：即便配了 llm，一旦调用失败（断网 / Key 失效 / 超时），
+  #    系统也会自动降级为 rule，业务流程不中断，
+  #    并在 ai_generation_log 里留下 status=FALLBACK 及失败原因。
+  provider: ${AI_PROVIDER:rule}
+
+  llm:
+    # OpenAI 兼容协议接口地址（可填 DeepSeek / 通义 / OpenAI 等）
+    base-url: ${AI_BASE_URL:https://api.deepseek.com}
+    # API Key（占位符，请填写或注入环境变量；切勿提交到代码库）
+    api-key: ${AI_API_KEY:YOUR_API_KEY}
+    # 模型名称
+    model: ${AI_MODEL:deepseek-chat}
+    # 超时时间（毫秒）
+    timeout-ms: 30000
+    # 温度参数：越低越稳定，分类任务建议低温度
+    temperature: 0.2
+    # 最大重试次数（不含首次调用）
+    max-retry: 1
+    # 单次请求最多携带的反馈原文条数，超出自动分批
+    max-feedback-per-request: 30
+
+  # --------- 降级与故障模拟 ---------
+  fallback:
+    # 是否在 AI 失败时自动降级为规则实现
+    enabled: true
+    # 【演示开关】强制模拟 AI 故障，用于答辩演示降级路径。
+    # 置为 true 后，即便 provider=rule，也会先走一次"大模型调用失败"再降级，
+    # 从而在调用记录里完整复现失败 → 降级的全过程。
+    simulate-failure: ${AI_SIMULATE_FAILURE:false}
+
+# ============================================================================
+# springdoc-openapi（Swagger UI）
+# 注意：Spring Boot 3.x 使用 springdoc，而非已停更的 springfox
+# ============================================================================
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+  default-consumes-media-type: application/json
+  default-produces-media-type: application/json
+
+# ============================================================================
+# 日志配置
+# ============================================================================
+logging:
+  level:
+    root: INFO
+    com.company.feedback: DEBUG
+    org.springframework.security: INFO

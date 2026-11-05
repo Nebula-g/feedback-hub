@@ -206,6 +206,48 @@ const transitRemarkRequired = computed(
 )
 
 /**
+ * 验收条件拆成逐条清单
+ *
+ * <p>后端把验收条件存成一段多行文本（PM 起草时就是一行一条）。
+ * 这里按行拆开，用来渲染成可勾选的清单——
+ * 一段密排的文字没人会逐条核对，拆成行才有"检查表"的作用。
+ */
+const acceptanceItems = computed(() => {
+  const raw = detail.value?.acceptanceCriteria || ''
+  return raw
+    .split(/\r?\n/)
+    .map((line) => line.replace(/^\s*[-*\d.、)]+\s*/, '').trim())
+    .filter(Boolean)
+})
+
+/** 任务是否已完成（完成即视为全部验收条件通过） */
+const isFinished = computed(() => detail.value?.status === 'DONE')
+
+/**
+ * 流转弹窗里的自查勾选状态
+ *
+ * <p>只在"提交待验证 / 完成"这一步要求勾选：这两步等于工程师声明
+ * "我逐条验过了"，没有这份自查记录，PM 复核时只能重新过一遍。
+ */
+const transitChecks = ref([])
+
+/** 该流转是否需要逐条确认验收条件 */
+const transitChecklistRequired = computed(() => {
+  if (!acceptanceItems.value.length) return false
+  return transitTarget.value === 'PENDING_VERIFY' || transitTarget.value === 'DONE'
+})
+
+/** 是否已全部勾选 */
+const transitChecksAllDone = computed(
+  () => transitChecks.value.length > 0 && transitChecks.value.every(Boolean)
+)
+
+/** 已勾选条数 */
+const transitChecksDone = computed(
+  () => transitChecks.value.filter(Boolean).length
+)
+
+/**
  * 打开流转弹窗
  *
  * @param {string} status 目标状态
@@ -213,6 +255,7 @@ const transitRemarkRequired = computed(
 function openTransitModal(status) {
   transitTarget.value = status
   transitRemark.value = ''
+  transitChecks.value = acceptanceItems.value.map(() => false)
   showTransitModal.value = true
 }
 
@@ -225,11 +268,24 @@ async function submitTransit() {
     return
   }
 
+  // 提交待验证/完成：必须逐条勾掉验收条件，否则"验证过了"是空口无凭
+  if (transitChecklistRequired.value && !transitChecksAllDone.value) {
+    message.warning('请先逐条确认验收条件')
+    return
+  }
+
+  // 把自查结果并进流转说明，留档到时间线（后端 remark 是唯一可写字段，不改表结构）
+  let remark = transitRemark.value.trim()
+  if (transitChecklistRequired.value) {
+    const summary = `验收条件自查 ${transitChecksDone.value}/${acceptanceItems.value.length} 条通过`
+    remark = remark ? `${remark}｜${summary}` : summary
+  }
+
   transitSubmitting.value = true
   try {
     await transitTaskStatus(route.params.id, {
       status: transitTarget.value,
-      remark: transitRemark.value || null
+      remark: remark || null
     })
     message.success('状态已更新')
     showTransitModal.value = false
@@ -507,10 +563,33 @@ onMounted(loadDetail)
         <n-divider />
 
         <div>
-          <n-text depth="3" style="font-size: 12px">验收条件</n-text>
-          <div class="content-box">
-            {{ detail.acceptanceCriteria || '（未填写）' }}
+          <div class="acceptance-head">
+            <n-text depth="3" style="font-size: 12px">验收条件</n-text>
+            <span v-if="acceptanceItems.length" class="acceptance-meta">
+              {{ isFinished ? '全部满足' : `共 ${acceptanceItems.length} 条` }}
+            </span>
           </div>
+
+          <!-- 逐条清单：密排的一段文字没人会核对，拆成行才能逐项打勾 -->
+          <ul v-if="acceptanceItems.length" class="acceptance-list">
+            <li
+              v-for="(item, index) in acceptanceItems"
+              :key="index"
+              class="acceptance-item"
+              :class="{ 'is-done': isFinished }"
+            >
+              <span class="acceptance-box">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M5 12.5l4.5 4.5L19 7" />
+                </svg>
+              </span>
+              <span class="acceptance-text">{{ item }}</span>
+              <em v-if="isFinished" class="acceptance-flag">已验证</em>
+            </li>
+          </ul>
+
+          <div v-else class="content-box">（未填写）</div>
         </div>
       </n-card>
 
@@ -586,6 +665,38 @@ onMounted(loadDetail)
       style="width: 520px"
     >
       <n-form label-placement="top">
+        <!-- 提交待验证 / 完成：先把验收条件逐条勾掉，再写说明 -->
+        <div v-if="transitChecklistRequired" class="transit-checks">
+          <div class="transit-checks__head">
+            <span class="transit-checks__title">验收条件自查</span>
+            <span class="transit-checks__count">
+              {{ transitChecksDone }} / {{ acceptanceItems.length }}
+            </span>
+          </div>
+          <div class="transit-checks__track">
+            <span
+              class="transit-checks__fill"
+              :style="{ width: `${(transitChecksDone / acceptanceItems.length) * 100}%` }"
+            ></span>
+          </div>
+
+          <label
+            v-for="(item, index) in acceptanceItems"
+            :key="index"
+            class="transit-check"
+            :class="{ 'is-done': transitChecks[index] }"
+          >
+            <input v-model="transitChecks[index]" type="checkbox" class="transit-check__input" />
+            <span class="transit-check__box">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5 12.5l4.5 4.5L19 7" />
+              </svg>
+            </span>
+            <span class="transit-check__text">{{ item }}</span>
+          </label>
+        </div>
+
         <n-form-item
           label="流转说明"
           :required="transitRemarkRequired"
@@ -686,7 +797,7 @@ onMounted(loadDetail)
       <template #footer>
         <n-space justify="end">
           <n-button quaternary @click="showAssignModal = false">取消</n-button>
-          <n-button type="primary" :loading="assignSubmitting" @click="submitAssign">
+          <n-button v-spark type="primary" :loading="assignSubmitting" @click="submitAssign">
             确认指派
           </n-button>
         </n-space>
@@ -757,5 +868,201 @@ onMounted(loadDetail)
   white-space: pre-wrap;
   word-break: break-word;
   min-height: 60px;
+}
+
+/* ==================== 验收条件清单 ==================== */
+.acceptance-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.acceptance-meta {
+  font-size: 11.5px;
+  color: var(--c-text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.acceptance-list {
+  margin: 6px 0 0;
+  padding: 6px;
+  list-style: none;
+  border: 1px solid var(--c-border-soft);
+  border-radius: 12px;
+  background-color: rgba(245, 247, 255, 0.72);
+}
+
+.acceptance-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  transition: background-color 0.2s ease;
+}
+
+.acceptance-item:hover {
+  background-color: rgba(255, 255, 255, 0.7);
+}
+
+.acceptance-box {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  color: transparent;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1.5px solid rgba(122, 136, 190, 0.32);
+  border-radius: 6px;
+}
+
+.acceptance-box svg {
+  width: 11px;
+  height: 11px;
+}
+
+/* 已完成的任务：整条清单变绿并划线，表示"这些都验过了" */
+.acceptance-item.is-done .acceptance-box {
+  color: #fff;
+  background: linear-gradient(135deg, var(--c-primary), #8494f9);
+  border-color: transparent;
+}
+
+.acceptance-item.is-done .acceptance-text {
+  color: var(--c-text-3);
+  text-decoration: line-through;
+  text-decoration-color: rgba(139, 146, 167, 0.6);
+}
+
+.acceptance-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--c-text-1);
+}
+
+.acceptance-flag {
+  flex: none;
+  font-size: 10.5px;
+  font-style: normal;
+  color: #2b9563;
+  background: rgba(51, 173, 116, 0.12);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+/* ==================== 流转弹窗：验收条件自查 ==================== */
+.transit-checks {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  background: rgba(245, 247, 255, 0.8);
+  border: 1px solid var(--c-border-soft);
+  border-radius: 12px;
+}
+
+.transit-checks__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.transit-checks__title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--c-text-1);
+}
+
+.transit-checks__count {
+  font-size: 11.5px;
+  color: var(--c-text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.transit-checks__track {
+  height: 5px;
+  margin-bottom: 8px;
+  overflow: hidden;
+  background: rgba(122, 136, 190, 0.16);
+  border-radius: 999px;
+}
+
+.transit-checks__fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--c-primary), var(--c-accent));
+  transition: width 0.4s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.transit-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.18s ease;
+}
+
+.transit-check:hover {
+  background-color: rgba(255, 255, 255, 0.85);
+}
+
+/* 原生 checkbox 视觉隐藏但保留键盘焦点 */
+.transit-check__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.transit-check__box {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  color: transparent;
+  background: #fff;
+  border: 1.5px solid rgba(122, 136, 190, 0.32);
+  border-radius: 6px;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.transit-check__box svg {
+  width: 11px;
+  height: 11px;
+}
+
+.transit-check.is-done .transit-check__box {
+  color: #fff;
+  background: linear-gradient(135deg, var(--c-primary), #8494f9);
+  border-color: transparent;
+}
+
+.transit-check__input:focus-visible + .transit-check__box {
+  box-shadow: 0 0 0 3px rgba(108, 123, 245, 0.28);
+}
+
+.transit-check__text {
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--c-text-2);
+}
+
+.transit-check.is-done .transit-check__text {
+  color: var(--c-text-3);
+  text-decoration: line-through;
+  text-decoration-color: rgba(139, 146, 167, 0.6);
 }
 </style>

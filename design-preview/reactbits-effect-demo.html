@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ReactBits 移植效果演示 · feedback-hub</title>
+<style>
+  :root{
+    --c-primary:#6c7bf5;
+    --c-accent:#a78bfa;
+    --c-text-1:#252a41;
+    --c-text-2:#5d6478;
+    --c-text-3:#8b92a7;
+    --glass-bg:rgba(255,255,255,.62);
+    --glass-border:rgba(255,255,255,.8);
+    --shadow:0 8px 32px rgba(108,123,245,.12);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{
+    font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+    color:var(--c-text-1);
+    background:
+      radial-gradient(900px 500px at 8% -5%, rgba(108,123,245,.20), transparent 60%),
+      radial-gradient(800px 480px at 95% 12%, rgba(167,139,250,.18), transparent 60%),
+      radial-gradient(700px 500px at 50% 110%, rgba(108,123,245,.14), transparent 60%),
+      #eef1fb;
+    min-height:100vh;
+    padding:48px 24px 80px;
+  }
+  .wrap{max-width:1000px;margin:0 auto;position:relative;z-index:1}
+
+  /* ---------- 头部 ---------- */
+  .hero{text-align:center;margin-bottom:40px}
+  .hero h1{
+    font-size:28px;font-weight:600;letter-spacing:.5px;
+    background:linear-gradient(120deg,var(--c-primary),var(--c-accent));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .hero p{margin-top:10px;font-size:14px;color:var(--c-text-2)}
+  .hero .tag{
+    display:inline-block;margin-top:14px;padding:4px 14px;border-radius:999px;
+    font-size:12px;color:var(--c-primary);
+    background:rgba(108,123,245,.10);border:1px solid rgba(108,123,245,.25);
+  }
+
+  /* ---------- 玻璃卡片基础 ---------- */
+  .glass{
+    background:var(--glass-bg);
+    backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+    border:1px solid var(--glass-border);
+    border-radius:16px;
+    box-shadow:var(--shadow);
+  }
+  section{margin-bottom:36px}
+  .sec-head{display:flex;align-items:baseline;gap:12px;margin:0 4px 14px}
+  .sec-head h2{font-size:17px;font-weight:600}
+  .sec-head .from{font-size:12px;color:var(--c-text-3)}
+  .sec-head .from b{color:var(--c-primary);font-weight:500}
+
+  /* =========================================================
+     1. Count Up 数字滚动 + Spotlight Card 聚光卡片
+     ========================================================= */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+  @media (max-width:760px){.stats{grid-template-columns:repeat(2,1fr)}}
+  .stat{
+    position:relative;overflow:hidden;padding:22px 20px;cursor:default;
+    transition:transform .25s ease,box-shadow .25s ease;
+  }
+  .stat:hover{transform:translateY(-3px);box-shadow:0 12px 36px rgba(108,123,245,.20)}
+  /* ReactBits Spotlight Card：鼠标跟随高光 */
+  .stat::before{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(260px circle at var(--mx,50%) var(--my,50%),
+      rgba(108,123,245,.16), transparent 65%);
+    opacity:0;transition:opacity .3s ease;
+  }
+  .stat:hover::before{opacity:1}
+  .stat .label{font-size:13px;color:var(--c-text-2);display:flex;align-items:center;gap:8px}
+  .stat .dot{width:8px;height:8px;border-radius:50%;background:var(--c-primary)}
+  .stat .dot.warn{background:#e8a13c}
+  .stat .dot.ok{background:#3cae7c}
+  .stat .dot.accent{background:var(--c-accent)}
+  .stat .num{
+    margin-top:10px;font-size:34px;font-weight:600;
+    font-variant-numeric:tabular-nums;letter-spacing:.5px;
+  }
+  .stat .sub{margin-top:4px;font-size:12px;color:var(--c-text-3)}
+  .stat:hover{border-color:rgba(108,123,245,.45)}
+  .replay-row{margin-top:14px;text-align:right}
+
+  /* ---------- 按钮通用 ---------- */
+  .btn{
+    display:inline-flex;align-items:center;gap:6px;
+    padding:9px 20px;border-radius:10px;border:1px solid rgba(108,123,245,.35);
+    background:linear-gradient(135deg,rgba(108,123,245,.12),rgba(167,139,250,.12));
+    color:var(--c-primary);font-size:13.5px;cursor:pointer;
+    transition:transform .15s ease,box-shadow .15s ease;
+    backdrop-filter:blur(8px);
+  }
+  .btn:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(108,123,245,.25)}
+  .btn:active{transform:translateY(0) scale(.97)}
+  .btn.ghost{
+    background:transparent;border-color:rgba(93,100,120,.30);color:var(--c-text-2);
+  }
+
+  /* =========================================================
+     2. Radar 雷达扫描 —— AI 聚类进行中
+     ========================================================= */
+  .ai-panel{display:flex;gap:32px;padding:28px;align-items:center;flex-wrap:wrap}
+  .radar-box{position:relative;width:240px;height:240px;flex:none;margin:0 auto}
+  .radar-box canvas{width:100%;height:100%;display:block}
+  .ai-info{flex:1;min-width:260px}
+  .ai-info h3{font-size:16px;font-weight:600;display:flex;align-items:center;gap:10px}
+  .pulse{width:9px;height:9px;border-radius:50%;background:var(--c-primary);animation:pulse 1.6s ease-in-out infinite}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(108,123,245,.45)}50%{box-shadow:0 0 0 8px rgba(108,123,245,0)}}
+  .ai-info p{margin-top:10px;font-size:13.5px;color:var(--c-text-2);line-height:1.7}
+  .ai-meta{margin-top:14px;display:flex;flex-wrap:wrap;gap:8px}
+  .chip{
+    font-size:12px;padding:4px 12px;border-radius:999px;color:var(--c-text-2);
+    background:rgba(255,255,255,.55);border:1px solid rgba(108,123,245,.22);
+  }
+  .ai-actions{margin-top:18px;display:flex;gap:10px}
+
+  /* =========================================================
+     3. Letter Glitch 字符故障背景 —— 空状态
+     ========================================================= */
+  .empty-card{position:relative;overflow:hidden;height:220px;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;text-align:center}
+  .empty-card canvas{position:absolute;inset:0;width:100%;height:100%;opacity:.16}
+  .empty-card .inner{position:relative;z-index:1}
+  .empty-card .icon{
+    width:52px;height:52px;margin:0 auto 14px;border-radius:14px;
+    display:flex;align-items:center;justify-content:center;
+    background:rgba(108,123,245,.12);border:1px solid rgba(108,123,245,.30);
+    font-size:24px;color:var(--c-primary);
+  }
+  .empty-card h3{font-size:15px;font-weight:600}
+  .empty-card p{margin-top:6px;font-size:13px;color:var(--c-text-3)}
+
+  /* =========================================================
+     4. Click Spark 点击火花 —— 操作按钮
+     ========================================================= */
+  .spark-panel{padding:30px;text-align:center}
+  .spark-panel h3{font-size:15px;font-weight:600;margin-bottom:6px}
+  .spark-panel p{font-size:13px;color:var(--c-text-3);margin-bottom:20px}
+  .spark-row{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+
+  /* ---------- 火花实现 ---------- */
+  .spark{position:fixed;width:0;height:0;pointer-events:none;z-index:9999}
+  .spark i{
+    position:absolute;left:0;top:0;width:2.5px;height:9px;border-radius:2px;
+    background:var(--c-primary);
+    transform:rotate(var(--a)) translateY(3px);
+    animation:sparkFly .55s cubic-bezier(.2,.7,.3,1) forwards;
+  }
+  .spark i:nth-child(even){background:var(--c-accent)}
+  @keyframes sparkFly{
+    from{transform:rotate(var(--a)) translateY(3px);opacity:1}
+    to{transform:rotate(var(--a)) translateY(-18px);opacity:0}
+  }
+
+  footer{
+    margin-top:52px;padding:20px 24px;font-size:12.5px;color:var(--c-text-3);line-height:2;
+  }
+  footer b{color:var(--c-text-2);font-weight:500}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <h1>ReactBits 移植效果演示</h1>
+    <p>5 个零依赖轻量效果 · 按项目浅色玻璃拟态规范实现 · 未改动 frontend/ 任何文件</p>
+    <span class="tag">Count Up · Spotlight Card · Radar · Letter Glitch · Click Spark</span>
+  </header>
+
+  <!-- 1. Count Up + Spotlight Card -->
+  <section>
+    <div class="sec-head">
+      <h2>仪表盘统计卡</h2>
+      <span class="from">ReactBits：<b>Count Up</b> + <b>Spotlight Card</b></span>
+    </div>
+    <div class="stats" id="stats">
+      <div class="glass stat">
+        <div class="label"><span class="dot"></span>反馈总数</div>
+        <div class="num" data-target="1286">0</div>
+        <div class="sub">累计收到用户反馈</div>
+      </div>
+      <div class="glass stat">
+        <div class="label"><span class="dot warn"></span>待归类</div>
+        <div class="num" data-target="58">0</div>
+        <div class="sub">等待 AI 辅助归并</div>
+      </div>
+      <div class="glass stat">
+        <div class="label"><span class="dot accent"></span>进行中问题</div>
+        <div class="num" data-target="12">0</div>
+        <div class="sub">PM 已确认立项</div>
+      </div>
+      <div class="glass stat">
+        <div class="label"><span class="dot ok"></span>本周闭环</div>
+        <div class="num" data-target="47">0</div>
+        <div class="sub">任务完成并验证通过</div>
+      </div>
+    </div>
+    <div class="replay-row">
+      <button class="btn ghost" id="replay">↺ 重播数字动画</button>
+    </div>
+  </section>
+
+  <!-- 2. Radar -->
+  <section>
+    <div class="sec-head">
+      <h2>AI 归类进行中</h2>
+      <span class="from">ReactBits：<b>Radar</b></span>
+    </div>
+    <div class="glass ai-panel">
+      <div class="radar-box"><canvas id="radar" width="480" height="480"></canvas></div>
+      <div class="ai-info">
+        <h3><span class="pulse"></span>AI 正在聚类反馈</h3>
+        <p>正在按「功能模块 + 语义相似度」对 58 条待归类反馈进行归并，
+           相似条目将生成候选问题卡片，由产品经理确认后才正式立项。</p>
+        <div class="ai-meta">
+          <span class="chip">输入 58 条</span>
+          <span class="chip">模块约束：不跨模块合并</span>
+          <span class="chip">失败自动降级本地规则</span>
+        </div>
+        <div class="ai-actions">
+          <button class="btn" id="radar-toggle">⏸ 暂停扫描</button>
+          <button class="btn ghost">查看候选卡片 →</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. Letter Glitch -->
+  <section>
+    <div class="sec-head">
+      <h2>空状态页</h2>
+      <span class="from">ReactBits：<b>Letter Glitch</b></span>
+    </div>
+    <div class="glass empty-card">
+      <canvas id="glitch"></canvas>
+      <div class="inner">
+        <div class="icon">✉</div>
+        <h3>暂无待归类反馈</h3>
+        <p>所有反馈都已完成归并，去候选问题卡片看看 AI 的整理结果吧</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. Click Spark -->
+  <section>
+    <div class="sec-head">
+      <h2>操作按钮微交互</h2>
+      <span class="from">ReactBits：<b>Click Spark</b></span>
+    </div>
+    <div class="glass spark-panel" data-spark-zone>
+      <h3>在下方按钮上点击试试</h3>
+      <p>每次点击从鼠标位置迸出火花——用于「确认立项」「驳回」等关键操作的反馈感</p>
+      <div class="spark-row">
+        <button class="btn" data-spark>✓ 确认立项</button>
+        <button class="btn ghost" data-spark>✕ 驳回候选</button>
+        <button class="btn ghost" data-spark>↗ 指派给开发</button>
+      </div>
+    </div>
+  </section>
+
+  <footer class="glass">
+    <b>移植说明（Vue 3 集成要点）：</b><br>
+    ① 所有实现均为原生 Canvas 2D / CSS，无任何第三方依赖，符合项目「零依赖」红线；<br>
+    ② 移植到 Vue 时：requestAnimationFrame 循环放 <b>onMounted</b>，清理放 <b>onBeforeUnmount</b>（React 里对应 useEffect 的 cleanup）；<br>
+    ③ 色值已按规范使用 --c-primary / --c-accent 变量，集成时替换为 global.css 的 --c-* 同名值即可；<br>
+    ④ 背景动画建议在 document.hidden 时暂停（visibilitychange），列表页不要常驻跑 canvas；<br>
+    ⑤ 登录页 LoginBackdrop（WebGL 流场）为本项目自研亮点，保持不动。
+  </footer>
+</div>
+
+<script>
+/* ============ 工具：玻璃卡片 Spotlight（鼠标跟随高光） ============ */
+document.querySelectorAll('.stat').forEach(card=>{
+  card.addEventListener('mousemove',e=>{
+    const r=card.getBoundingClientRect();
+    card.style.setProperty('--mx',(e.clientX-r.left)+'px');
+    card.style.setProperty('--my',(e.clientY-r.top)+'px');
+  });
+});
+
+/* ============ Count Up 数字滚动（easeOutCubic） ============ */
+function countUp(el,dur){
+  const target=+el.dataset.target, t0=performance.now();
+  function frame(t){
+    const p=Math.min((t-t0)/(dur||1200),1);
+    const e=1-Math.pow(1-p,3);                    // easeOutCubic
+    el.textContent=Math.round(target*e).toLocaleString();
+    if(p<1) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+function playAll(){document.querySelectorAll('.num').forEach(el=>countUp(el,1200));}
+playAll();
+document.getElementById('replay').addEventListener('click',playAll);
+
+/* ============ Radar 雷达扫描 ============ */
+(function(){
+  const cv=document.getElementById('radar'),ctx=cv.getContext('2d');
+  const C=240,R=215;let angle=0,running=true,raf=null;
+  // 模拟"反馈点"：被扫过后逐渐变暗
+  const blips=Array.from({length:9},()=>({
+    a:Math.random()*Math.PI*2, r:R*(0.25+Math.random()*0.7), glow:0
+  }));
+  function draw(){
+    ctx.clearRect(0,0,480,480);
+    // 同心圆 + 十字线
+    ctx.strokeStyle='rgba(108,123,245,.28)';ctx.lineWidth=2;
+    [0.28,0.52,0.76,1].forEach(k=>{ctx.beginPath();ctx.arc(C,C,R*k,0,7);ctx.stroke();});
+    ctx.beginPath();ctx.moveTo(C-R,C);ctx.lineTo(C+R,C);ctx.moveTo(C,C-R);ctx.lineTo(C,C+R);ctx.stroke();
+    // 扫描扇形（锥形渐变）
+    try{
+      const g=ctx.createConicGradient(angle,C,C);
+      g.addColorStop(0,'rgba(108,123,245,.55)');
+      g.addColorStop(0.12,'rgba(108,123,245,0)');
+      g.addColorStop(1,'rgba(108,123,245,0)');
+      ctx.fillStyle=g;
+      ctx.beginPath();ctx.arc(C,C,R,0,7);ctx.fill();
+    }catch(e){}
+    // 扫描线
+    ctx.strokeStyle='rgba(108,123,245,.9)';ctx.lineWidth=2.5;
+    ctx.beginPath();ctx.moveTo(C,C);
+    ctx.lineTo(C+Math.cos(angle)*R,C+Math.sin(angle)*R);ctx.stroke();
+    // 反馈点：与扫描线角度越近越亮
+    blips.forEach(b=>{
+      let d=Math.abs(((b.a-angle)%(Math.PI*2)+Math.PI*2)%(Math.PI*2));
+      if(d>Math.PI)d=Math.PI*2-d;
+      const glow=Math.max(0,1-d/1.4);
+      ctx.beginPath();
+      ctx.arc(C+Math.cos(b.a)*b.r,C+Math.sin(b.a)*b.r,5+glow*3,0,7);
+      ctx.fillStyle=`rgba(108,123,245,${0.25+glow*0.75})`;
+      ctx.fill();
+    });
+    angle=(angle+0.016)%(Math.PI*2);
+    if(running) raf=requestAnimationFrame(draw);
+  }
+  draw();
+  const btn=document.getElementById('radar-toggle');
+  btn.addEventListener('click',()=>{
+    running=!running;
+    btn.textContent=running?'⏸ 暂停扫描':'▶ 继续扫描';
+    if(running)draw();else cancelAnimationFrame(raf);
+  });
+  // 页面不可见时暂停，省电
+  document.addEventListener('visibilitychange',()=>{
+    if(document.hidden&&running){cancelAnimationFrame(raf);}
+    else if(!document.hidden&&running){draw();}
+  });
+})();
+
+/* ============ Letter Glitch 字符故障背景 ============ */
+(function(){
+  const cv=document.getElementById('glitch'),ctx=cv.getContext('2d');
+  const CHARS='FEEDBACK01HUB#%&';
+  const colors=['rgba(108,123,245,1)','rgba(167,139,250,1)','rgba(139,146,167,1)'];
+  let cols,rows,cell=22,timer=null;
+  function resize(){
+    cv.width=cv.offsetWidth*2;cv.height=cv.offsetHeight*2;
+    cell=44;cols=Math.ceil(cv.width/cell);rows=Math.ceil(cv.height/cell);
+    ctx.font='600 22px monospace';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.clearRect(0,0,cv.width,cv.height);
+    for(let x=0;x<cols;x++)for(let y=0;y<rows;y++)paintCell(x,y,0.10);
+  }
+  function paintCell(x,y,alpha){
+    ctx.fillStyle=colors[Math.random()*colors.length|0];
+    ctx.globalAlpha=alpha;
+    ctx.fillText(CHARS[Math.random()*CHARS.length|0],x*cell+cell/2,y*cell+cell/2);
+    ctx.globalAlpha=1;
+  }
+  resize();
+  addEventListener('resize',resize);
+  timer=setInterval(()=>{
+    for(let i=0;i<14;i++)paintCell(Math.random()*cols|0,Math.random()*rows|0,0.9);
+  },90);
+})();
+
+/* ============ Click Spark 点击火花 ============ */
+document.querySelectorAll('[data-spark-zone]').forEach(zone=>{
+  zone.addEventListener('pointerdown',e=>{
+    const s=document.createElement('div');
+    s.className='spark';
+    s.style.left=e.clientX+'px';s.style.top=e.clientY+'px';
+    for(let i=0;i<8;i++){
+      const l=document.createElement('i');
+      l.style.setProperty('--a',(i*45)+'deg');
+      s.appendChild(l);
+    }
+    document.body.appendChild(s);
+    setTimeout(()=>s.remove(),600);
+  });
+});
+</script>
+</body>
+</html>

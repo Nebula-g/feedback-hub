@@ -22,10 +22,11 @@
  */
 import { computed, h, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { NMenu, NDropdown, NInput, NAvatar, NPopover, NEmpty, NButton } from 'naive-ui'
+import { NMenu, NDropdown, NAvatar, NPopover, NEmpty, NButton } from 'naive-ui'
 
 import AppIcon from '@/components/AppIcon.vue'
 import AuroraBackground from '@/components/AuroraBackground.vue'
+import CommandPalette from '@/components/CommandPalette.vue'
 import { useUserStore } from '@/stores/user'
 import { useNoticeStore } from '@/stores/notification'
 
@@ -38,12 +39,31 @@ const noticeStore = useNoticeStore()
 const showNoticePanel = ref(false)
 const showMessagePanel = ref(false)
 
+/** 命令面板显隐（Ctrl / ⌘ + K） */
+const showPalette = ref(false)
+
+/**
+ * 全局快捷键：Ctrl / ⌘ + K 开关命令面板
+ *
+ * <p>用 keydown 而不是给某个输入框绑定快捷键，
+ * 这样在任意页面、焦点任意位置都能唤起——这才是"全局搜索"的含义。
+ *
+ * @param {KeyboardEvent} event 键盘事件
+ */
+function handleGlobalKeydown(event) {
+  if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'k') return
+  event.preventDefault()
+  showPalette.value = !showPalette.value
+}
+
 // 登录后启动未读数轮询，离开布局时停止
 onMounted(() => {
   noticeStore.startPolling()
+  window.addEventListener('keydown', handleGlobalKeydown)
 })
 onUnmounted(() => {
   noticeStore.stopPolling()
+  window.removeEventListener('keydown', handleGlobalKeydown)
 })
 
 /** 通知类型 → 面板图标与主题色 */
@@ -107,7 +127,6 @@ async function handleMessageClick(group) {
 }
 
 /** 顶栏搜索关键字 */
-const keyword = ref('')
 
 /**
  * 根据路由表生成侧边栏菜单
@@ -288,18 +307,6 @@ function handleUserSelect(key) {
 function handleMenuUpdate(key) {
   if (key !== route.name) router.push({ name: key })
 }
-
-/**
- * 顶栏搜索
- *
- * <p>直接复用反馈列表已有的 keyword 查询参数，
- * 不新增后端接口——搜索能力本来就存在于列表页。
- */
-function handleSearch() {
-  const value = keyword.value.trim()
-  if (!value) return
-  router.push({ name: 'feedback-list', query: { keyword: value } })
-}
 </script>
 
 <template>
@@ -362,17 +369,15 @@ function handleSearch() {
           </div>
 
           <div class="topbar__search">
-            <n-input
-              v-model:value="keyword"
-              round
-              placeholder="搜索反馈、问题或任务"
-              class="search-input"
-              @keyup.enter="handleSearch"
-            >
-              <template #prefix>
-                <AppIcon name="search" :size="16" />
-              </template>
-            </n-input>
+            <!-- 搜索入口做成胶囊按钮：点开是命令面板，不再是直接输入框
+                 （原来只能搜反馈，现在一次搜反馈/问题/任务三类） -->
+            <button class="search-trigger" type="button" @click="showPalette = true">
+              <AppIcon name="search" :size="16" />
+              <span class="search-trigger__text">搜索反馈、问题、任务…</span>
+              <span class="search-trigger__keys">
+                <kbd>Ctrl</kbd><kbd>K</kbd>
+              </span>
+            </button>
           </div>
 
           <div class="topbar__actions">
@@ -513,6 +518,9 @@ function handleSearch() {
         </main>
       </div>
     </div>
+
+    <!-- 全局命令面板（Teleport 到 body，Ctrl/⌘ K 唤起） -->
+    <CommandPalette v-model:show="showPalette" />
   </div>
 </template>
 
@@ -719,18 +727,57 @@ function handleSearch() {
   margin-left: 10px;
 }
 
-.search-input :deep(.n-input__border),
-.search-input :deep(.n-input__state-border) {
-  border-radius: 999px;
-}
-
-.search-input :deep(.n-input__prefix) {
-  color: var(--c-text-3);
-}
-
-.search-input {
-  --n-height: 38px !important;
+/* 搜索入口：胶囊按钮，视觉上像输入框，点击才唤起面板。
+   这样窄屏下不会因为输入框抢宽度把右侧图标挤掉。 */
+.search-trigger {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
   max-width: 420px;
+  height: 38px;
+  padding: 0 8px 0 14px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--c-text-3);
+  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: border-color 0.22s ease, background-color 0.22s ease, box-shadow 0.22s ease;
+}
+
+.search-trigger:hover {
+  background: #fff;
+  border-color: rgba(108, 123, 245, 0.3);
+  box-shadow: 0 12px 26px -18px rgba(74, 89, 168, 0.7);
+}
+
+.search-trigger__text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-align: left;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.search-trigger__keys {
+  display: flex;
+  gap: 3px;
+  flex: none;
+}
+
+.search-trigger kbd {
+  padding: 2px 5px;
+  font-family: inherit;
+  font-size: 10px;
+  line-height: 1.3;
+  color: var(--c-text-3);
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--c-border-soft);
+  border-bottom-width: 2px;
+  border-radius: 5px;
 }
 
 .topbar__actions {

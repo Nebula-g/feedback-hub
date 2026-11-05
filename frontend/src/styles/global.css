@@ -221,3 +221,48 @@ a {
 .app-card {
   border-radius: var(--radius-card);
 }
+
+/* ============================================================
+ * v-spark 点击火花（src/directives/spark.js 动态创建的 DOM）
+ *
+ * <p>为什么写在 global.css 而不是组件 scoped 里：
+ * 指令创建的容器直接挂在 body 下，不在任何组件树内，
+ * scoped 样式的 data-v 属性透传不到，选择器会静默失效
+ * （与 n-modal 走 Teleport 后样式必须放全局是同一个道理）。
+ * ============================================================ */
+.click-spark {
+  position: fixed;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+.click-spark i {
+  position: absolute;
+  left: -1px;
+  top: -4px;
+  width: 2.5px;
+  height: 9px;
+  border-radius: 2px;
+  transform: rotate(var(--a)) translateY(3px);
+  animation: spark-fly 0.55s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+}
+
+@keyframes spark-fly {
+  from {
+    transform: rotate(var(--a)) translateY(3px);
+    opacity: 1;
+  }
+  to {
+    transform: rotate(var(--a)) translateY(-18px);
+    opacity: 0;
+  }
+}
+
+/** 减少动效偏好：火花整体关闭（指令侧无需重复判断） */
+@media (prefers-reduced-motion: reduce) {
+  .click-spark {
+    display: none;
+  }
+}

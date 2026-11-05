@@ -45,6 +45,8 @@ import {
   useMessage
 } from 'naive-ui'
 
+import BeforeAfterCompare from '@/components/BeforeAfterCompare.vue'
+import RadarLoading from '@/components/effects/RadarLoading.vue'
 import {
   generateCandidates,
   fetchCandidatePage,
@@ -296,6 +298,46 @@ const confirmRules = {
 }
 
 /**
+ * 确认弹窗的两种视图
+ *
+ * <p>'edit'：左右并排，右侧可编辑（默认，日常操作走这里）；
+ * 'compare'：拖拽分割线对比 AI 原稿与当前定稿（用来检查"到底改了哪几处"）。
+ * 对比视图里不提供编辑，避免拖拽手势和输入框抢事件。
+ */
+const confirmViewMode = ref('edit')
+
+/** 打开弹窗时的原稿快照，用于对比视图和"是否修改"判定 */
+const originalForm = ref({
+  title: '',
+  description: '',
+  finalContent: '',
+  acceptanceCriteria: ''
+})
+
+/**
+ * 对比行
+ *
+ * <p>四组字段两两对照：左边是打开弹窗时的原稿，右边是当前表单值。
+ * 只在变化时标出来，用户一眼能看到自己动了哪几处。
+ */
+const compareRows = computed(() => {
+  const source = originalForm.value
+  const rows = [
+    { label: '问题标题', before: source.title, after: confirmForm.title },
+    { label: '问题描述', before: source.description, after: confirmForm.description },
+    { label: '需求说明', before: source.finalContent, after: confirmForm.finalContent },
+    { label: '验收条件', before: source.acceptanceCriteria, after: confirmForm.acceptanceCriteria }
+  ]
+  return rows.map((row) => ({
+    ...row,
+    changed: String(row.before || '').trim() !== String(row.after || '').trim()
+  }))
+})
+
+/** 已修改字段数（顶部提示与标签用） */
+const changedCount = computed(() => compareRows.value.filter((row) => row.changed).length)
+
+/**
  * 打开确认弹窗
  *
  * <p>把 AI 草稿原样填入可编辑表单，
@@ -315,6 +357,13 @@ function openConfirmModal(card) {
   confirmForm.finalContent = buildFinalContent(card)
   confirmForm.acceptanceCriteria = ''
   confirmSuggestion.value = null
+  confirmViewMode.value = 'edit'
+  originalForm.value = {
+    title: confirmForm.title,
+    description: confirmForm.description,
+    finalContent: confirmForm.finalContent,
+    acceptanceCriteria: ''
+  }
   showConfirmModal.value = true
   analyzeDraft()
 }
@@ -336,6 +385,8 @@ async function analyzeDraft() {
 
     if (result?.available && result.acceptanceCriteria) {
       confirmForm.acceptanceCriteria = result.acceptanceCriteria
+      // 同步进原稿快照：AI 建议算"原稿"，不然后面一对比全是"已修改"
+      originalForm.value.acceptanceCriteria = result.acceptanceCriteria
     }
   } catch (error) {
     confirmSuggestion.value = {
@@ -780,6 +831,21 @@ onMounted(loadData)
       </n-space>
     </n-card>
 
+    <!-- AI 聚类进行中：雷达扫描氛围（RadarLoading，ReactBits Radar 的移植版） -->
+    <n-card v-if="generating" class="app-card radar-card">
+      <div class="radar-panel">
+        <RadarLoading :size="168" />
+        <div class="radar-panel__text">
+          <h3>AI 正在聚类反馈</h3>
+          <p>
+            按「功能模块 + 语义相似度」归并相似反馈，生成候选问题卡片；<br />
+            相似说法将被归为同一张卡片，PM 确认后才会正式立项。
+          </p>
+          <p class="radar-panel__hint">调用失败会自动降级为本地规则实现，流程不会中断。</p>
+        </div>
+      </div>
+    </n-card>
+
     <!-- 加载态 -->
     <n-card v-if="loading" class="app-card">
       <n-spin size="large" style="display: block; margin: 60px auto" />
@@ -941,12 +1007,64 @@ onMounted(loadData)
       class="confirm-modal"
       style="width: 900px"
     >
-      <n-alert type="info" :bordered="false" style="margin-bottom: 16px">
+      <n-alert type="info" :bordered="false" style="margin-bottom: 12px">
         左侧是 AI 原稿（不可修改，确认后原样留档）；右侧是你最终确认的内容。
         <b>只要修改过，系统就会记录为「修改后确认」</b>，便于事后区分 AI 产出与人工决策。
       </n-alert>
 
-      <div class="confirm-grid">
+      <!-- 视图切换：并排编辑（可改） / 拖拽对比（只看差异） -->
+      <div class="confirm-mode">
+        <div class="confirm-mode__group">
+          <button
+            type="button"
+            class="confirm-mode__btn"
+            :class="{ 'is-active': confirmViewMode === 'edit' }"
+            @click="confirmViewMode = 'edit'"
+          >
+            并排编辑
+          </button>
+          <button
+            type="button"
+            class="confirm-mode__btn"
+            :class="{ 'is-active': confirmViewMode === 'compare' }"
+            @click="confirmViewMode = 'compare'"
+          >
+            拖拽对比
+          </button>
+        </div>
+        <span v-if="changedCount > 0" class="confirm-mode__hint">
+          已修改 {{ changedCount }} 处
+        </span>
+        <span v-else class="confirm-mode__hint confirm-mode__hint--muted">与 AI 原稿一致</span>
+      </div>
+
+      <!-- 对比视图：拖动分割线看 AI 原稿 vs 当前定稿 -->
+      <BeforeAfterCompare
+        v-if="confirmViewMode === 'compare'"
+        class="confirm-compare"
+        :height="340"
+        before-label="AI 原稿"
+        after-label="PM 定稿"
+      >
+        <template #before>
+          <div v-for="row in compareRows" :key="`b-${row.label}`" class="cmp-row">
+            <span class="cmp-label">{{ row.label }}</span>
+            <span class="cmp-text">{{ row.before || '—' }}</span>
+          </div>
+        </template>
+
+        <template #after>
+          <div v-for="row in compareRows" :key="`a-${row.label}`" class="cmp-row cmp-row--after">
+            <span class="cmp-label">
+              {{ row.label }}
+              <em v-if="row.changed" class="cmp-flag">已改</em>
+            </span>
+            <span class="cmp-text">{{ row.after || '—' }}</span>
+          </div>
+        </template>
+      </BeforeAfterCompare>
+
+      <div v-else class="confirm-grid">
         <!-- 左：AI 原稿（只读） -->
         <div class="panel">
           <div class="panel-head">
@@ -1067,6 +1185,7 @@ onMounted(loadData)
         <n-space justify="end">
           <n-button quaternary @click="showConfirmModal = false">取消</n-button>
           <n-button
+            v-spark
             type="primary"
             :loading="confirmSubmitting"
             @click="submitConfirm"
@@ -1204,6 +1323,7 @@ onMounted(loadData)
         <n-space justify="end">
           <n-button quaternary @click="showSplitModal = false">取消</n-button>
           <n-button
+            v-spark
             type="primary"
             :loading="splitSubmitting"
             @click="submitSplit"
@@ -1252,6 +1372,7 @@ onMounted(loadData)
         <n-space justify="end">
           <n-button quaternary @click="showMergeModal = false">取消</n-button>
           <n-button
+            v-spark
             type="primary"
             :loading="mergeSubmitting"
             @click="submitMerge"
@@ -1284,6 +1405,7 @@ onMounted(loadData)
         <n-space justify="end">
           <n-button quaternary @click="showRejectModal = false">取消</n-button>
           <n-button
+            v-spark
             type="error"
             :loading="rejectSubmitting"
             @click="submitReject"
@@ -1368,6 +1490,91 @@ onMounted(loadData)
   color: var(--c-text-2);
   font-size: 12px;
   line-height: 1.6;
+}
+
+/* 确认弹窗：视图切换 */
+.confirm-mode {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.confirm-mode__group {
+  display: inline-flex;
+  padding: 3px;
+  background: rgba(122, 136, 190, 0.12);
+  border-radius: 999px;
+}
+
+.confirm-mode__btn {
+  padding: 5px 14px;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--c-text-2);
+  background: transparent;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.confirm-mode__btn.is-active {
+  color: var(--c-primary);
+  background: #fff;
+  box-shadow: 0 4px 12px -6px rgba(74, 89, 168, 0.5);
+}
+
+.confirm-mode__hint {
+  font-size: 11.5px;
+  color: var(--c-warning);
+}
+
+.confirm-mode__hint--muted {
+  color: var(--c-text-3);
+}
+
+/* 对比视图里的字段行：标签小一号，正文不截断（容器内可滚动） */
+.confirm-compare {
+  margin-bottom: 4px;
+}
+
+.cmp-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 10px;
+  max-width: 100%;
+}
+
+.cmp-row--after {
+  align-items: flex-end;
+}
+
+.cmp-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  color: var(--c-text-3);
+}
+
+.cmp-flag {
+  padding: 1px 5px;
+  font-size: 9.5px;
+  font-style: normal;
+  color: #b4741b;
+  background: rgba(224, 144, 47, 0.16);
+  border-radius: 5px;
+}
+
+.cmp-text {
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--c-text-1);
+  white-space: pre-line;
+  word-break: break-word;
 }
 
 /* 确认弹窗：左右并排 */
@@ -1460,5 +1667,35 @@ onMounted(loadData)
   align-items: center;
   justify-content: space-between;
   margin-bottom: 6px;
+}
+
+/* AI 聚类进行中的雷达面板：左雷达 + 右文案 */
+.radar-card {
+  margin-bottom: 16px;
+}
+
+.radar-panel {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  padding: 10px 8px;
+}
+
+.radar-panel__text h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--c-text-1);
+}
+
+.radar-panel__text p {
+  margin-top: 8px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--c-text-2);
+}
+
+.radar-panel__hint {
+  color: var(--c-text-3);
+  font-size: 12px;
 }
 </style>

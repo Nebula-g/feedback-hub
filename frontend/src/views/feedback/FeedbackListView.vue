@@ -13,7 +13,7 @@
  * <p><b>只读设计</b>：本页只有「查看详情」，没有任何编辑/删除入口。
  * 反馈原文一旦入库不可修改，这是整个项目可信度的基础。
  */
-import { ref, reactive, onMounted, watch, h } from 'vue'
+import { ref, reactive, computed, onMounted, watch, h } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   NCard,
@@ -24,12 +24,12 @@ import {
   NSelect,
   NInput,
   NTag,
-  NEmpty,
-  NResult,
-  NText,
-  NIcon
+  NResult
 } from 'naive-ui'
 
+import FilterChips from '@/components/FilterChips.vue'
+import EmptyState from '@/components/EmptyState.vue'
+import SkeletonList from '@/components/SkeletonList.vue'
 import { fetchFeedbackPage } from '@/api/feedback'
 import {
   FEEDBACK_MODULES,
@@ -72,6 +72,51 @@ const query = reactive({
 
 /** 是否执行过至少一次筛选（用于区分「无数据」与「筛选无结果」） */
 const filtered = ref(!!query.keyword)
+
+/** 各状态条数（胶囊上的计数，null 表示还在加载） */
+const statusCounts = ref(null)
+
+/** 首次加载：只有第一次进页面才铺骨架屏，翻页/筛选不铺，避免列表"闪一下" */
+const firstLoad = ref(true)
+
+/**
+ * 加载各状态的条数
+ *
+ * <p>列表接口只返回当前筛选下的 total，给不出"待关联 12 条"这种分布。
+ * 这里用 4 个 pageSize=1 的轻查询换 total，代价是 4 个小请求，
+ * 换来的是用户不用点进去就知道哪个状态有积压——对筛选胶囊来说这是核心信息。
+ *
+ * <p>计数跟随当前的关键词/模块/来源筛选，否则会出现
+ * "筛了模块 A，胶囊上却显示全库条数"的错位。
+ */
+async function loadStatusCounts() {
+  const base = { pageNo: 1, pageSize: 1 }
+  if (query.module) base.module = query.module
+  if (query.source) base.source = query.source
+  if (query.keyword) base.keyword = query.keyword
+
+  const results = await Promise.allSettled(
+    FEEDBACK_STATUSES.map((item) =>
+      fetchFeedbackPage({ ...base, status: item.value })
+    )
+  )
+
+  const counts = {}
+  results.forEach((result, index) => {
+    const status = FEEDBACK_STATUSES[index].value
+    counts[status] = result.status === 'fulfilled' ? result.value?.total || 0 : null
+  })
+  statusCounts.value = counts
+}
+
+/** 胶囊选项：把状态枚举与条数拼起来 */
+const statusOptions = computed(() =>
+  FEEDBACK_STATUSES.map((item) => ({
+    value: item.value,
+    label: item.label,
+    count: statusCounts.value?.[item.value] ?? null
+  }))
+)
 
 // ==================== 表格列定义 ====================
 
@@ -207,11 +252,30 @@ async function loadData() {
     loadError.value = error.message || '加载反馈列表失败'
   } finally {
     loading.value = false
+    firstLoad.value = false
   }
+
+  // 计数独立加载：失败也不该让列表进失败态，胶囊最多不显示数字
+  loadStatusCounts()
 }
 
 /** 点击搜索 */
 function handleSearch() {
+  query.pageNo = 1
+  filtered.value = true
+  loadData()
+}
+
+/**
+ * 切换状态胶囊
+ *
+ * <p>胶囊是"点一下就生效"的控件，不做成"点查询才生效"——
+ * 那会让用户怀疑自己点没点上。翻页回到第 1 页。
+ *
+ * @param {string|null} value 目标状态
+ */
+function handleStatusChange(value) {
+  query.status = value
   query.pageNo = 1
   filtered.value = true
   loadData()
@@ -260,7 +324,19 @@ watch(
   <div class="page-container">
     <!-- ==================== 筛选区 ==================== -->
     <n-card class="app-card filter-card">
-      <n-space :wrap="true" align="center">
+      <!-- 状态胶囊：一行铺开，带各状态条数，点一下即生效 -->
+      <div class="status-row">
+        <span class="status-row__label">归类状态</span>
+        <FilterChips
+          :model-value="query.status"
+          :options="statusOptions"
+          :all-count="total"
+          all-label="全部"
+          @change="handleStatusChange"
+        />
+      </div>
+
+      <n-space :wrap="true" align="center" style="margin-top: 14px">
         <n-input
           v-model:value="query.keyword"
           placeholder="搜索反馈原文或编号"
@@ -275,14 +351,6 @@ watch(
           clearable
           :options="FEEDBACK_MODULES"
           style="width: 150px"
-        />
-
-        <n-select
-          v-model:value="query.status"
-          placeholder="归类状态"
-          clearable
-          :options="FEEDBACK_STATUSES"
-          style="width: 130px"
         />
 
         <n-select
@@ -313,55 +381,57 @@ watch(
       </n-result>
 
       <template v-else>
-        <n-data-table
-          :columns="columns"
-          :data="rows"
-          :loading="loading"
-          :bordered="false"
-          :single-line="false"
-          size="small"
-        />
+        <!-- 首屏：骨架屏与真实行的结构一致，数据到达时布局不跳 -->
+        <SkeletonList v-if="loading && firstLoad" :rows="6" />
 
-        <!-- 空态：区分"筛选无结果"与"库里无数据"，两者处理动作不同 -->
-        <n-empty
-          v-if="!loading && rows.length === 0"
-          :description="filtered ? '没有符合筛选条件的反馈，试试放宽条件' : '还没有任何反馈记录'"
-          style="margin-top: 32px"
+        <EmptyState
+          v-else-if="!loading && rows.length === 0"
+          :title="filtered ? '没有符合筛选条件的反馈' : '还没有任何反馈记录'"
+          :description="
+            filtered
+              ? '试试切回「全部」，或放宽模块、来源条件'
+              : '客户反馈入库后，会在这里按时间倒序出现'
+          "
         >
-          <template #extra>
-            <n-button v-if="filtered" size="small" @click="handleReset">
-              清空筛选条件
-            </n-button>
-            <n-button
-              v-else-if="userStore.isCs || userStore.role === 'ADMIN'"
-              size="small"
-              type="primary"
-              @click="router.push({ name: 'feedback-create' })"
-            >
-              录入第一条反馈
-            </n-button>
-          </template>
-        </n-empty>
+          <n-button v-if="filtered" size="small" @click="handleReset">清空筛选条件</n-button>
+          <n-button
+            v-else-if="userStore.isCs || userStore.role === 'ADMIN'"
+            size="small"
+            type="primary"
+            @click="router.push({ name: 'feedback-create' })"
+          >
+            录入第一条反馈
+          </n-button>
+        </EmptyState>
 
-        <div class="pagination-wrapper">
-          <n-pagination
-            v-model:page="query.pageNo"
-            :page-count="
-              Math.max(1, Math.ceil(total / query.pageSize))
-            "
-            :page-size="query.pageSize"
-            show-size-picker
-            :page-sizes="[10, 20, 50]"
-            @update:page="handlePageChange"
-            @update:page-size="
-              (size) => {
-                query.pageSize = size
-                query.pageNo = 1
-                loadData()
-              }
-            "
+        <template v-else>
+          <n-data-table
+            :columns="columns"
+            :data="rows"
+            :loading="loading"
+            :bordered="false"
+            :single-line="false"
+            size="small"
           />
-        </div>
+
+          <div class="pagination-wrapper">
+            <n-pagination
+              v-model:page="query.pageNo"
+              :page-count="Math.max(1, Math.ceil(total / query.pageSize))"
+              :page-size="query.pageSize"
+              show-size-picker
+              :page-sizes="[10, 20, 50]"
+              @update:page="handlePageChange"
+              @update:page-size="
+                (size) => {
+                  query.pageSize = size
+                  query.pageNo = 1
+                  loadData()
+                }
+              "
+            />
+          </div>
+        </template>
       </template>
     </n-card>
   </div>
@@ -370,6 +440,27 @@ watch(
 <style scoped>
 .filter-card {
   margin-bottom: 16px;
+}
+
+/* 状态胶囊整行：标签 + 胶囊，窄屏时标签换到胶囊上方 */
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.status-row__label {
+  flex: none;
+  font-size: 12.5px;
+  color: var(--c-text-3);
+}
+
+@media (max-width: 720px) {
+  .status-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
 }
 
 .table-card {

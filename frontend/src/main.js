@@ -4,6 +4,7 @@ import naive from 'naive-ui'
 
 import App from './App.vue'
 import router from './router'
+import sparkDirective from './directives/spark'
 import './styles/global.css'
 
 /**
@@ -24,5 +25,8 @@ const app = createApp(App)
 app.use(createPinia())
 app.use(router)
 app.use(naive)
+
+/** 全局自定义指令：v-spark 点击火花（只用于确认/驳回/指派等关键决策按钮） */
+app.directive('spark', sparkDirective)
 
 app.mount('#app')

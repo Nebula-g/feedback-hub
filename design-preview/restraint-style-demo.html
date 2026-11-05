@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>克制风视觉演示 · CSS 图案 / Duotone 图标 / Animista 入场 / 颗粒渐变</title>
+<style>
+  /* ============================================================
+   * 演示页：克制风三件套（对应推荐组合）
+   *   ① CSS Pattern 低透明度图案内衬（css-pattern.com 思路，纯 CSS）
+   *   ② Phosphor Duotone 双色图标（内联 SVG，零依赖）
+   *   ③ Animista 标题入场动画（tracking-in / focus-in，纯 CSS）
+   *   ④ gggrain 颗粒渐变横幅（SVG feTurbulence，零图片）
+   * 色值走 --c-* 变量，与 global.css 规范一致；未动 frontend/ 任何代码
+   * ============================================================ */
+  :root {
+    --c-primary: #6c7bf5;
+    --c-accent: #a78bfa;
+    --c-text: #252a41;
+    --c-text-2: #5d6478;
+    --c-text-3: #8b92a7;
+    --radius-card: 18px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    color: var(--c-text);
+    min-height: 100vh;
+    background: #eef0fb;
+    background-image:
+      radial-gradient(600px 400px at 12% 8%, rgba(108,123,245,.18), transparent 60%),
+      radial-gradient(700px 500px at 88% 90%, rgba(167,139,250,.16), transparent 60%);
+    padding: 48px 24px 64px;
+  }
+
+  .page { max-width: 1000px; margin: 0 auto; position: relative; z-index: 1; }
+
+  .page-title { font-size: 26px; font-weight: 700; letter-spacing: .5px; }
+  .page-sub { color: var(--c-text-3); font-size: 13px; margin-top: 6px; }
+
+  .card {
+    background: rgba(255,255,255,.62);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255,255,255,.75);
+    box-shadow: 0 8px 28px rgba(108,123,245,.10);
+    border-radius: var(--radius-card);
+    padding: 26px 28px;
+    margin-top: 26px;
+  }
+
+  .card h2 { font-size: 16px; display: flex; align-items: center; gap: 10px; }
+  .card h2 .tag {
+    font-size: 11px; font-weight: 500; color: var(--c-primary);
+    background: rgba(108,123,245,.12); border-radius: 999px; padding: 3px 10px;
+  }
+  .card .desc { color: var(--c-text-3); font-size: 13px; margin: 8px 0 20px; line-height: 1.7; }
+
+  /* ============ ① CSS 图案内衬（低透明度） ============ */
+  .pattern-row { display: flex; gap: 14px; flex-wrap: wrap; }
+  .pattern-swatch {
+    width: 132px; height: 84px; border-radius: 12px;
+    border: 1px solid rgba(108,123,245,.16); background-color: rgba(255,255,255,.5);
+  }
+  /* 斜纹：css-pattern.com 经典写法 */
+  .pt-diagonal {
+    background-image: repeating-linear-gradient(45deg,
+      var(--pt-c, rgba(108,123,245,.14)) 0 1px, transparent 1px 11px);
+  }
+  /* 点阵 */
+  .pt-dots {
+    background-image: radial-gradient(var(--pt-c, rgba(108,123,245,.16)) 1.2px, transparent 1.3px);
+    background-size: 14px 14px;
+  }
+  /* 十字加号 */
+  .pt-plus {
+    background-image:
+      linear-gradient(var(--pt-c, rgba(108,123,245,.14)) 1px, transparent 1px),
+      linear-gradient(90deg, var(--pt-c, rgba(108,123,245,.14)) 1px, transparent 1px);
+    background-size: 16px 16px;
+    background-position: center;
+    /* 中空十字：用 mask 挖掉中心太重，直接细线网格弱化即可 */
+  }
+  /* 波浪（同心圆弧近似） */
+  .pt-zigzag {
+    background:
+      conic-gradient(from 135deg at 50% 60%, var(--pt-c, rgba(108,123,245,.13)) 0 90deg, transparent 0) 0 0 / 18px 18px;
+  }
+  /* 落地示例：空状态卡片铺纹理 */
+  .empty-card {
+    border-radius: 14px; padding: 30px; text-align: center;
+    border: 1px solid rgba(108,123,245,.14);
+    background-color: rgba(255,255,255,.55);
+    background-image:
+      radial-gradient(rgba(108,123,245,.09) 1.2px, transparent 1.3px);
+    background-size: 14px 14px;
+  }
+  .empty-card .t { font-size: 15px; font-weight: 600; margin-top: 12px; }
+  .empty-card .d { font-size: 12.5px; color: var(--c-text-3); margin-top: 5px; }
+
+  /* ============ ② Phosphor Duotone 图标（内联 SVG） ============ */
+  .icon-grid { display: flex; gap: 10px; flex-wrap: wrap; }
+  .icon-tile {
+    width: 76px; padding: 12px 4px 9px; text-align: center;
+    border-radius: 12px; background: rgba(255,255,255,.55);
+    border: 1px solid rgba(108,123,245,.14);
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .icon-tile:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(108,123,245,.18); }
+  .icon-tile svg { width: 30px; height: 30px; display: block; margin: 0 auto 7px; }
+  .icon-tile span { font-size: 11px; color: var(--c-text-3); }
+  /* Duotone 双色规则：底层 path 主色 20% 不透明度，顶层实心——Phosphor 的着色逻辑 */
+  .icon-tile svg .duo { opacity: .2; }
+  .icon-tile.c-accent svg .duo { fill: var(--c-accent); }
+  .icon-tile.c-accent svg .solid { fill: var(--c-accent); }
+
+  /* 侧栏导航真实场景示例 */
+  .mini-sidebar {
+    width: 200px; border-radius: 14px; padding: 10px;
+    background: rgba(255,255,255,.6); border: 1px solid rgba(108,123,245,.14);
+  }
+  .mini-sidebar a {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px; border-radius: 10px;
+    font-size: 13px; color: var(--c-text-2); text-decoration: none;
+  }
+  .mini-sidebar a.active {
+    background: #fff; color: var(--c-primary); font-weight: 600;
+    box-shadow: 0 2px 8px rgba(108,123,245,.12);
+  }
+  .mini-sidebar a svg { width: 19px; height: 19px; flex: none; }
+  .mini-sidebar a svg .duo { opacity: .22; }
+  .mini-sidebar a svg .duo, .mini-sidebar a svg .solid { fill: currentColor; }
+  .mini-sidebar a.active svg .solid { fill: var(--c-primary); }
+  .mini-sidebar a.active svg .duo { fill: var(--c-accent); opacity: .35; }
+
+  /* ============ ③ Animista 入场动画 ============ */
+  .anim-stage { min-height: 120px; display: flex; flex-direction: column; justify-content: center; gap: 18px; }
+  .anim-btn {
+    border: 1px solid rgba(108,123,245,.35); cursor: pointer; font-size: 12.5px;
+    color: var(--c-primary); background: rgba(255,255,255,.6);
+    padding: 8px 18px; border-radius: 10px; align-self: flex-start; font-weight: 600;
+  }
+  .anim-btn:hover { background: rgba(108,123,245,.08); }
+  /* Animista: tracking-in-expand —— 字距由松到紧 + 淡入，克制的标题入场 */
+  @keyframes tracking-in-expand {
+    0% { letter-spacing: .9em; opacity: 0; filter: blur(.4px); }
+    60% { opacity: .75; }
+    100% { letter-spacing: .02em; opacity: 1; filter: blur(0); }
+  }
+  /* Animista: focus-in-contract —— 模糊聚焦收拢 */
+  @keyframes focus-in-contract {
+    0% { letter-spacing: .5em; filter: blur(10px); opacity: 0; }
+    100% { letter-spacing: .02em; filter: blur(0); opacity: 1; }
+  }
+  .anim-h { font-size: 20px; font-weight: 700; }
+  .anim-h.tracking { animation: tracking-in-expand 1s cubic-bezier(.215,.61,.355,1) both; }
+  .anim-h.focus { animation: focus-in-contract .9s cubic-bezier(.215,.61,.355,1) both; }
+  .anim-h .hl { color: var(--c-primary); }
+
+  /* ============ ④ gggrain 颗粒渐变横幅 ============ */
+  .grain-banner {
+    position: relative; overflow: hidden;
+    border-radius: 14px; padding: 26px 28px; color: #fff;
+    background: linear-gradient(120deg, #6c7bf5 0%, #7f7df6 45%, #a78bfa 100%);
+  }
+  /* SVG feTurbulence 噪点层：fractalNoise + 去饱和，overlay 混合出颗粒感 */
+  .grain-banner .noise {
+    position: absolute; inset: 0; pointer-events: none;
+    mix-blend-mode: overlay; opacity: .55;
+  }
+  .grain-banner .content { position: relative; z-index: 1; }
+  .grain-banner .t { font-size: 17px; font-weight: 700; }
+  .grain-banner .d { font-size: 12.5px; opacity: .85; margin-top: 5px; }
+  .grain-banner .cta {
+    display: inline-block; margin-top: 14px; font-size: 12.5px; font-weight: 600;
+    background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.35);
+    padding: 7px 16px; border-radius: 9px; color: #fff;
+  }
+
+  .footnote {
+    margin-top: 30px; padding: 18px 22px; border-radius: 14px;
+    background: rgba(108,123,245,.06); border: 1px dashed rgba(108,123,245,.30);
+    font-size: 12.5px; color: var(--c-text-2); line-height: 1.9;
+  }
+  .footnote b { color: var(--c-primary); }
+  code { background: rgba(108,123,245,.09); padding: 1px 6px; border-radius: 5px; font-size: 12px; }
+</style>
+</head>
+<body>
+<!-- ④ 用的噪点滤镜定义（隐藏） -->
+<svg width="0" height="0" style="position:absolute">
+  <filter id="grainFilter">
+    <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/>
+    <feColorMatrix type="saturate" values="0"/>
+  </filter>
+</svg>
+
+<div class="page">
+  <h1 class="page-title">克制风视觉演示</h1>
+  <p class="page-sub">CSS 图案内衬 / Phosphor Duotone 图标 / Animista 入场 / 颗粒渐变 —— 零依赖、零图片请求，未动 frontend/</p>
+
+  <!-- ④ 颗粒渐变横幅 -->
+  <div class="grain-banner" style="margin-top:26px">
+    <svg class="noise" width="100%" height="100%"><rect width="100%" height="100%" filter="url(#grainFilter)"/></svg>
+    <div class="content">
+      <div class="t">本周反馈处理报告已就绪</div>
+      <div class="d">新增反馈 86 条 · 归类 62 条 · 转入任务 18 项</div>
+      <span class="cta">查看完整报告</span>
+    </div>
+  </div>
+
+  <!-- ① CSS 图案内衬 -->
+  <div class="card">
+    <h2>① CSS 图案内衬 <span class="tag">纯 CSS · 0 图片 · css-pattern.com 思路</span></h2>
+    <p class="desc">四种低透明度底纹（斜纹 / 点阵 / 细网格 / 弧形），全部由渐变画成，改 <code>--pt-c</code> 一处即可换色。下方「空状态卡片」是落地效果：点阵铺底 + 内容居中，比纯白空旷多一层质感，又完全不打扰阅读。</p>
+    <div class="pattern-row">
+      <div class="pattern-swatch pt-diagonal"></div>
+      <div class="pattern-swatch pt-dots"></div>
+      <div class="pattern-swatch pt-plus"></div>
+      <div class="pattern-swatch pt-zigzag"></div>
+    </div>
+    <div class="empty-card" style="max-width:420px;margin:20px auto 0">
+      <div class="t">暂无待归类反馈</div>
+      <div class="d">新反馈进入反馈池后，AI 会自动聚类到候选问题</div>
+    </div>
+  </div>
+
+  <!-- ② Phosphor Duotone 图标 -->
+  <div class="card">
+    <h2>② Phosphor Duotone 图标 <span class="tag">内联 SVG · 零运行时</span></h2>
+    <p class="desc">Duotone 字重的着色逻辑：底层形状 20% 不透明度铺色、顶层实心描形。项目里底层走主色、顶层走强调色（或反转），正好复用双色体系。实际集成用 <code>@phosphor-icons/vue</code>，此处为演示手写的等价 SVG。</p>
+    <div class="icon-grid">
+      <!-- 反馈 inbox -->
+      <div class="icon-tile"><svg viewBox="0 0 256 256"><path class="duo" fill="#6c7bf5" d="M208 64H48a16 16 0 0 0-16 16v96a16 16 0 0 0 16 16h160a16 16 0 0 0 16-16V80a16 16 0 0 0-16-16z"/><path class="solid" fill="#6c7bf5" d="M224 144h-41.6l-12.8 21.3a8 8 0 0 1-6.9 3.9h-69.4a8 8 0 0 1-6.9-3.9L73.6 144H32v32a16 16 0 0 0 16 16h160a16 16 0 0 0 16-16z"/></svg><span>反馈池</span></div>
+      <!-- 检索 magnifying-glass -->
+      <div class="icon-tile"><svg viewBox="0 0 256 256"><circle class="duo" fill="#6c7bf5" cx="112" cy="112" r="72"/><path class="solid" fill="#6c7bf5" d="M168 112a56 56 0 1 1-56-56 56 56 0 0 1 56 56z" opacity="0"/><path class="solid" fill="#6c7bf5" d="M229.66 218.34 185.06 173.74A79.68 79.68 0 0 0 192 112a80 80 0 1 0-80 80 79.68 79.68 0 0 0 61.74-26.94l44.6 44.6a8 8 0 0 0 11.32-11.32ZM48 112a64 64 0 1 1 64 64 64.07 64.07 0 0 1-64-64Z"/></svg><span>检索</span></div>
+      <!-- 问题 warning -->
+      <div class="icon-tile c-accent"><svg viewBox="0 0 256 256"><path class="duo" fill="#a78bfa" d="M236.7 188 148.8 36a24 24 0 0 0-41.6 0L19.3 188A23.9 23.9 0 0 0 40 224h176a23.9 23.9 0 0 0 20.7-36z"/><path class="solid" fill="#a78bfa" d="M128 136a8 8 0 0 1-8-8V96a8 8 0 0 1 16 0v32a8 8 0 0 1-8 8Zm12 32a12 12 0 1 1-12-12 12 12 0 0 1 12 12Z"/></svg><span>问题</span></div>
+      <!-- 完成 check-circle -->
+      <div class="icon-tile"><svg viewBox="0 0 256 256"><path class="duo" fill="#6c7bf5" d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24Z"/><path class="solid" fill="#6c7bf5" d="M173.66 109.66l-56 56a8 8 0 0 1-11.32 0l-24-24a8 8 0 0 1 11.32-11.32L112 148.69l50.34-50.35a8 8 0 0 1 11.32 11.32Z"/></svg><span>闭环</span></div>
+      <!-- 任务 kanban -->
+      <div class="icon-tile"><svg viewBox="0 0 256 256"><path class="duo" fill="#6c7bf5" d="M208 48H48a16 16 0 0 0-16 16v128a16 16 0 0 0 16 16h160a16 16 0 0 0 16-16V64a16 16 0 0 0-16-16z"/><path class="solid" fill="#6c7bf5" d="M104 88v88a8 8 0 0 1-16 0V88a8 8 0 0 1 16 0Zm-24-8H64v96h16Zm112 8v88a8 8 0 0 1-16 0V88a8 8 0 0 1 16 0Zm-24-8h-16v96h16Z"/></svg><span>任务</span></div>
+      <!-- AI sparkles -->
+      <div class="icon-tile c-accent"><svg viewBox="0 0 256 256"><path class="duo" fill="#a78bfa" d="M187.1 104.6 170 91.9l-12.6-17.1a8 8 0 0 0-12.8 0L132 91.9l-17.1 12.7a8 8 0 0 0 0 12.8l17.1 12.7 12.6 17.1a8 8 0 0 0 12.8 0l12.6-17.1 17.1-12.7a8 8 0 0 0 0-12.8z"/><path class="solid" fill="#a78bfa" d="M120 56 108 40 92 28a8 8 0 0 0-9.6 0L66.4 40 54.4 56a8 8 0 0 0 0 9.6l12 16 16.6 12a8 8 0 0 0 9.6 0l16.6-12 12-16a8 8 0 0 0-1.2-9.6zm88 108-12 16-16 12a8 8 0 0 0 0 9.6l12 16 16 12a8 8 0 0 0 9.6 0l16-12 12-16a8 8 0 0 0 0-9.6l-12-16-16-12a8 8 0 0 0-9.6 0z"/></svg><span>AI 助手</span></div>
+      <!-- 流转 arrow-path -->
+      <div class="icon-tile"><svg viewBox="0 0 256 256"><path class="duo" fill="#6c7bf5" d="M224 48v48h-48z"/><path class="duo" fill="#6c7bf5" d="M32 208v-48h48z"/><path class="solid" fill="#6c7bf5" d="M224 40h-48a8 8 0 0 0 0 16h28.7L170 90.5A72 72 0 0 0 56.6 108a8 8 0 0 0 13.8 8A56 56 0 0 1 158 100.6L132 128h92V48a8 8 0 0 0-8-8Zm-163.5 108a56 56 0 0 1 87.5 19.4 8 8 0 0 0 13.8-8A72 72 0 0 0 86 133.5l34.6-33.5H32v80a8 8 0 0 0 8 8h44a8 8 0 0 0 0-16H60.5Z"/></svg><span>流转</span></div>
+      <!-- 用户 user-circle -->
+      <div class="icon-tile"><svg viewBox="0 0 256 256"><path class="duo" fill="#6c7bf5" d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24Z"/><path class="solid" fill="#6c7bf5" d="M128 152a40 40 0 1 0-40-40 40 40 0 0 0 40 40Zm0 16a71.62 71.62 0 0 0-51.1 21.35 88 88 0 0 0 102.2 0A71.62 71.62 0 0 0 128 168Z"/></svg><span>我的</span></div>
+    </div>
+
+    <div style="display:flex;gap:26px;align-items:flex-start;margin-top:22px;flex-wrap:wrap">
+      <div class="mini-sidebar">
+        <a class="active"><svg viewBox="0 0 256 256"><path class="duo" d="M208 64H48a16 16 0 0 0-16 16v96a16 16 0 0 0 16 16h160a16 16 0 0 0 16-16V80a16 16 0 0 0-16-16z"/><path class="solid" d="M224 144h-41.6l-12.8 21.3a8 8 0 0 1-6.9 3.9h-69.4a8 8 0 0 1-6.9-3.9L73.6 144H32v32a16 16 0 0 0 16 16h160a16 16 0 0 0 16-16z"/></svg>反馈池</a>
+        <a><svg viewBox="0 0 256 256"><path class="duo" d="M236.7 188 148.8 36a24 24 0 0 0-41.6 0L19.3 188A23.9 23.9 0 0 0 40 224h176a23.9 23.9 0 0 0 20.7-36z"/><path class="solid" d="M128 136a8 8 0 0 1-8-8V96a8 8 0 0 1 16 0v32a8 8 0 0 1-8 8Zm12 32a12 12 0 1 1-12-12 12 12 0 0 1 12 12Z"/></svg>问题看板</a>
+        <a><svg viewBox="0 0 256 256"><path class="duo" d="M208 48H48a16 16 0 0 0-16 16v128a16 16 0 0 0 16 16h160a16 16 0 0 0 16-16V64a16 16 0 0 0-16-16z"/><path class="solid" d="M104 88v88a8 8 0 0 1-16 0V88a8 8 0 0 1 16 0Zm-24-8H64v96h16Zm112 8v88a8 8 0 0 1-16 0V88a8 8 0 0 1 16 0Zm-24-8h-16v96h16Z"/></svg>任务</a>
+      </div>
+      <div style="flex:1;min-width:280px;font-size:12.5px;color:var(--c-text-3);line-height:1.8">
+        左侧是侧栏导航的真实场景：选中项图标用 <b style="color:var(--c-primary)">主色实心 + 强调色底层</b>，
+        未选中项随 <code>currentColor</code> 走灰阶——Duotone 的层次感只在需要引导注意的地方出现。
+      </div>
+    </div>
+  </div>
+
+  <!-- ③ Animista 入场 -->
+  <div class="card">
+    <h2>③ Animista 标题入场 <span class="tag">纯 CSS · 可调参后直接复制 keyframes</span></h2>
+    <p class="desc">两种最克制的标题入场：字距收拢（tracking-in-expand）与模糊聚焦（focus-in-contract）。放在页面标题 / 弹窗标题上，每次进入页面播一次即止。点击按钮重播对比：</p>
+    <div class="anim-stage">
+      <button class="anim-btn" id="replayBtn">↻ 重播两种入场</button>
+      <div class="anim-h tracking">反馈数据<span class="hl">一屏总览</span></div>
+      <div class="anim-h focus">AI 已为你归类 <span class="hl">12</span> 个候选问题</div>
+    </div>
+  </div>
+
+  <div class="footnote">
+    <b>移植到 Vue 的要点</b>：① 图案是纯 CSS，直接把 <code>background-image</code> 加到目标容器 class，色值换成
+    <code>--c-primary</code> 的 rgba（透明度 ≤ 16%）；② 集成用 <code>@phosphor-icons/vue</code>（MIT、tree-shake 按需引入），
+    主题色通过包裹元素的 <code>color</code> 继承；③ 把两个 <code>@keyframes</code> 抄进 global.css，组件上挂
+    <code>animation: … both</code>，动画结束状态保留（both 关键字），不需要 JS；④ 噪点横幅 = 渐变底 + 一层
+    <code>feTurbulence</code> SVG 滤镜（overlay 混合），内联一次即可全局复用。
+  </div>
+</div>
+
+<script>
+// ③ 重播：移除 class → 强制 reflow → 重新挂上，纯 CSS 动画的标准重播手法
+document.getElementById('replayBtn').addEventListener('click', function () {
+  document.querySelectorAll('.anim-h').forEach(function (el) {
+    var cls = el.classList.contains('tracking') ? 'tracking' : 'focus';
+    el.classList.remove(cls);
+    void el.offsetWidth; // 强制 reflow，让动画重置
+    el.classList.add(cls);
+  });
+});
+</script>
+</body>
+</html>

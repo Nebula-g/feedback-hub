@@ -148,7 +148,7 @@ async function handleSubmit() {
     <div class="login-shell">
       <section class="login-card">
         <header class="login-head">
-          <h1 class="login-title">用户反馈助手</h1>
+          <h1 class="login-title anim-tracking-in">用户反馈助手</h1>
           <p class="login-subtitle">统一收集、处理、追踪用户反馈</p>
         </header>
 

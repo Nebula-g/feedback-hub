@@ -10,7 +10,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@vicons/ionicons5": "^0.13.0",
     "axios": "^1.7.9",
     "dayjs": "^1.11.13",
     "naive-ui": "^2.40.4",

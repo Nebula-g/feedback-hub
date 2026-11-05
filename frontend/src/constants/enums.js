@@ -53,14 +53,6 @@ export const TASK_PRIORITIES = [
   { value: 'P2', label: 'P2 - 体验优化' }
 ]
 
-/** 系统角色 */
-export const ROLES = [
-  { value: 'CS', label: '客服' },
-  { value: 'PM', label: '产品经理' },
-  { value: 'DEV', label: '开发工程师' },
-  { value: 'ADMIN', label: '系统管理员' }
-]
-
 /**
  * 把 code 转成中文名
  *
@@ -91,6 +83,3 @@ export const taskStatusLabel = (code) => labelOf(TASK_STATUSES, code)
 
 /** 优先级中文名 */
 export const priorityLabel = (code) => labelOf(TASK_PRIORITIES, code)
-
-/** 角色中文名 */
-export const roleLabel = (code) => labelOf(ROLES, code)

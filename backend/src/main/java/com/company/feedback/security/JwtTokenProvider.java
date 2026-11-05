@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import jakarta.annotation.PostConstruct;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
@@ -47,6 +48,30 @@ public class JwtTokenProvider {
     /** 过期时间（毫秒） */
     @Value("${jwt.expiration}")
     private Long expiration;
+
+    /** 激活的 profile 列表（逗号分隔），用于判断是否生产环境 */
+    @Value("${spring.profiles.active:dev}")
+    private String activeProfiles;
+
+    /** application.yml 中留给本地开发的默认密钥（与 yml 中的占位值保持一致） */
+    private static final String DEV_DEFAULT_SECRET = "feedback-hub-dev-only-secret-change-me";
+
+    /**
+     * 启动时校验密钥安全性
+     *
+     * <p>生产环境（profile 含 prod）若仍在使用 yml 里的开发默认密钥，
+     * 说明部署者忘了注入 JWT_SECRET 环境变量——此时直接拒绝启动，
+     * 避免「生产环境用公开密钥签发 Token」这种静默的安全事故。
+     * 开发环境不受影响，保持开箱即用。
+     */
+    @PostConstruct
+    void validateSecret() {
+        boolean isProd = activeProfiles != null && activeProfiles.contains("prod");
+        if (isProd && DEV_DEFAULT_SECRET.equals(secret)) {
+            throw new IllegalStateException(
+                    "生产环境禁止使用 JWT 默认密钥：请通过环境变量 JWT_SECRET 注入真实密钥后再启动");
+        }
+    }
 
     /**
      * 生成 JWT Token

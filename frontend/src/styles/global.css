@@ -266,3 +266,53 @@ a {
     display: none;
   }
 }
+
+/* ============================================================
+ * Animista 标题入场（克制风）：字距收拢 / 模糊聚焦
+ * 动画只动 letter-spacing / blur / opacity，不改布局尺寸；
+ * both 保证结束后停留在最终帧，不需要 JS 参与重置。
+ * ============================================================ */
+
+@keyframes animista-tracking-in-expand {
+  0% {
+    letter-spacing: 0.9em;
+    opacity: 0;
+    filter: blur(0.4px);
+  }
+  60% {
+    opacity: 0.75;
+  }
+  100% {
+    letter-spacing: 0.02em;
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+@keyframes animista-focus-in-contract {
+  0% {
+    letter-spacing: 0.5em;
+    filter: blur(10px);
+    opacity: 0;
+  }
+  100% {
+    letter-spacing: 0.02em;
+    filter: blur(0);
+    opacity: 1;
+  }
+}
+
+.anim-tracking-in {
+  animation: animista-tracking-in-expand 1s cubic-bezier(0.215, 0.61, 0.355, 1) both;
+}
+
+.anim-focus-in {
+  animation: animista-focus-in-contract 0.9s cubic-bezier(0.215, 0.61, 0.355, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-tracking-in,
+  .anim-focus-in {
+    animation: none;
+  }
+}

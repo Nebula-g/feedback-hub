@@ -365,7 +365,8 @@ function handleMenuUpdate(key) {
             >
               <AppIcon name="chevron-left" :size="18" />
             </button>
-            <span class="topbar__page">{{ pageTitle }}</span>
+            <!-- :key 绑路由：路由变化时 span 重挂载，入场动画随之重播（Animista focus-in-contract） -->
+            <span :key="route.fullPath" class="topbar__page anim-focus-in">{{ pageTitle }}</span>
           </div>
 
           <div class="topbar__search">

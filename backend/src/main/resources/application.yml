@@ -51,8 +51,9 @@ mybatis-plus:
   configuration:
     # 开启驼峰命名自动映射：create_time -> createTime
     map-underscore-to-camel-case: true
-    # 打印 SQL 日志（开发环境便于调试，生产请关闭）
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    # 注意：SQL 全量打印（StdOutImpl）只应在开发环境开启，
+    # 已移至 application-dev.yml（gitignore 的本地配置），
+    # 生产环境不配置此项即走默认 NoLoggingImpl，避免刷爆日志。
   global-config:
     db-config:
       # 主键策略：数据库自增

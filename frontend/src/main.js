@@ -4,7 +4,7 @@ import naive from 'naive-ui'
 
 import App from './App.vue'
 import router from './router'
-import sparkDirective from './directives/spark'
+import { installGlobalSpark } from './utils/spark'
 import './styles/global.css'
 
 /**
@@ -26,7 +26,7 @@ app.use(createPinia())
 app.use(router)
 app.use(naive)
 
-/** 全局自定义指令：v-spark 点击火花（只用于确认/驳回/指派等关键决策按钮） */
-app.directive('spark', sparkDirective)
+/** 全局点击火花：页面内任意位置（含背景空白处）点击即触发，一次监听全局生效 */
+installGlobalSpark()
 
 app.mount('#app')

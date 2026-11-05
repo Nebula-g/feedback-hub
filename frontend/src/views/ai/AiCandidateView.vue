@@ -1185,7 +1185,6 @@ onMounted(loadData)
         <n-space justify="end">
           <n-button quaternary @click="showConfirmModal = false">取消</n-button>
           <n-button
-            v-spark
             type="primary"
             :loading="confirmSubmitting"
             @click="submitConfirm"
@@ -1323,7 +1322,6 @@ onMounted(loadData)
         <n-space justify="end">
           <n-button quaternary @click="showSplitModal = false">取消</n-button>
           <n-button
-            v-spark
             type="primary"
             :loading="splitSubmitting"
             @click="submitSplit"
@@ -1372,7 +1370,6 @@ onMounted(loadData)
         <n-space justify="end">
           <n-button quaternary @click="showMergeModal = false">取消</n-button>
           <n-button
-            v-spark
             type="primary"
             :loading="mergeSubmitting"
             @click="submitMerge"
@@ -1405,7 +1402,6 @@ onMounted(loadData)
         <n-space justify="end">
           <n-button quaternary @click="showRejectModal = false">取消</n-button>
           <n-button
-            v-spark
             type="error"
             :loading="rejectSubmitting"
             @click="submitReject"

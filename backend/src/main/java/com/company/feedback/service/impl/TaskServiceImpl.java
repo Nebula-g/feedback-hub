@@ -287,6 +287,7 @@ public class TaskServiceImpl implements TaskService {
      * @param request 优先级参数
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updatePriority(Long id, TaskPriorityUpdateRequest request) {
 
         ImprovementTask task = taskMapper.selectById(id);
@@ -324,6 +325,7 @@ public class TaskServiceImpl implements TaskService {
      * @param request 指派参数
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void assign(Long id, TaskAssignRequest request) {
 
         ImprovementTask task = taskMapper.selectById(id);

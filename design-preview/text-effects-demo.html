@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>文字效果演示 · Gradient Text / Shiny Text / Scramble Text</title>
+<style>
+  /* ============================================================
+   * 演示页：ReactBits 文字效果 3 件套（对应项目落地优先级 1+2）
+   * 规范与 frontend/src/styles/global.css 保持一致：
+   *   --c-primary #6c7bf5 / --c-accent #a78bfa
+   *   文本三级 #252a41 / #5d6478 / #8b92a7
+   *   浅色玻璃拟态：半透明白卡 + backdrop-filter + 细描边
+   * ============================================================ */
+  :root {
+    --c-primary: #6c7bf5;
+    --c-accent: #a78bfa;
+    --c-text: #252a41;
+    --c-text-2: #5d6478;
+    --c-text-3: #8b92a7;
+    --radius-card: 18px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    color: var(--c-text);
+    min-height: 100vh;
+    background: #eef0fb;
+    /* 复刻 AuroraBackground 的静态底：双色光斑 + 细点阵，纯 CSS */
+    background-image:
+      radial-gradient(600px 400px at 12% 8%, rgba(108,123,245,.18), transparent 60%),
+      radial-gradient(700px 500px at 88% 90%, rgba(167,139,250,.16), transparent 60%),
+      radial-gradient(rgba(108,123,245,.10) 1px, transparent 1px);
+    background-size: auto, auto, 22px 22px;
+    padding: 48px 24px 64px;
+  }
+
+  .page { max-width: 1000px; margin: 0 auto; position: relative; z-index: 1; }
+
+  .page-title { font-size: 26px; font-weight: 700; letter-spacing: .5px; }
+  .page-sub { color: var(--c-text-3); font-size: 13px; margin-top: 6px; }
+
+  .card {
+    background: rgba(255,255,255,.62);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255,255,255,.75);
+    box-shadow: 0 8px 28px rgba(108,123,245,.10);
+    border-radius: var(--radius-card);
+    padding: 26px 28px;
+    margin-top: 26px;
+  }
+
+  .card h2 { font-size: 16px; display: flex; align-items: center; gap: 10px; }
+  .card h2 .tag {
+    font-size: 11px; font-weight: 500; color: var(--c-primary);
+    background: rgba(108,123,245,.12); border-radius: 999px; padding: 3px 10px;
+  }
+  .card .desc { color: var(--c-text-3); font-size: 13px; margin: 8px 0 20px; line-height: 1.7; }
+
+  /* ============ ① Gradient Text ============ */
+  .gradient-demo { display: flex; gap: 36px; align-items: baseline; flex-wrap: wrap; }
+  .gt-num {
+    font-size: 52px; font-weight: 800; font-variant-numeric: tabular-nums;
+    background: linear-gradient(135deg, var(--c-primary) 20%, var(--c-accent) 85%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent; color: transparent;
+  }
+  .gt-title {
+    font-size: 22px; font-weight: 700;
+    background: linear-gradient(90deg, var(--c-primary), var(--c-accent), var(--c-primary));
+    background-size: 200% auto;
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent; color: transparent;
+    animation: gt-flow 5s linear infinite;
+  }
+  @keyframes gt-flow { to { background-position: 200% center; } }
+  .demo-label { font-size: 12px; color: var(--c-text-3); margin-top: 8px; }
+
+  /* ============ ② Shiny Text ============ */
+  .shiny-demo { display: flex; gap: 28px; flex-wrap: wrap; align-items: center; }
+  .st-nav { display: flex; gap: 4px; background: rgba(108,123,245,.07); padding: 5px; border-radius: 12px; }
+  .st-nav span { padding: 7px 16px; font-size: 13px; color: var(--c-text-2); border-radius: 9px; cursor: default; }
+  .st-nav span.active {
+    background: #fff; box-shadow: 0 2px 8px rgba(108,123,245,.14); font-weight: 600;
+  }
+  /* 扫光：linear-gradient 中段一道高亮从左向右掠过 */
+  .shiny-text {
+    background: linear-gradient(110deg,
+      var(--c-text-2) 42%, var(--c-primary) 50%, var(--c-text-2) 58%);
+    background-size: 250% 100%;
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent; color: transparent;
+    animation: shiny-sweep 2.8s linear infinite;
+    font-size: 13px; font-weight: 600;
+  }
+  @keyframes shiny-sweep { to { background-position: -250% center; } }
+  .st-stat { text-align: center; }
+  .st-stat b { display: block; font-size: 20px; color: var(--c-text); }
+  .st-stat .shiny-text { font-weight: 500; }
+
+  /* ============ ③ Scramble Text（AI 产出解码） ============ */
+  .scramble-stage { position: relative; }
+  .sc-btn {
+    border: none; cursor: pointer; font-size: 13px; font-weight: 600; color: #fff;
+    background: linear-gradient(135deg, var(--c-primary), var(--c-accent));
+    padding: 10px 22px; border-radius: 10px; letter-spacing: 1px;
+    box-shadow: 0 4px 14px rgba(108,123,245,.35);
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .sc-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(108,123,245,.42); }
+  .sc-btn:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+  .sc-lines { margin-top: 20px; display: grid; gap: 12px; }
+  .sc-line {
+    display: flex; gap: 12px; align-items: flex-start;
+    background: rgba(255,255,255,.7); border: 1px solid rgba(108,123,245,.14);
+    border-radius: 12px; padding: 13px 16px;
+  }
+  .sc-badge {
+    flex: none; font-size: 11px; color: var(--c-primary);
+    background: rgba(108,123,245,.10); border-radius: 6px; padding: 3px 8px; margin-top: 1px;
+  }
+  .sc-text { font-size: 14px; line-height: 1.65; color: var(--c-text); min-height: 22px; word-break: break-all; }
+  .sc-text.done { color: var(--c-text); }
+  /* 未解码字符的弱化态 */
+  .sc-text.scrambling { color: var(--c-text-3); }
+  .sc-meta { margin-top: 14px; font-size: 12px; color: var(--c-text-3); }
+
+  .footnote {
+    margin-top: 30px; padding: 18px 22px; border-radius: 14px;
+    background: rgba(108,123,245,.06); border: 1px dashed rgba(108,123,245,.30);
+    font-size: 12.5px; color: var(--c-text-2); line-height: 1.9;
+  }
+  .footnote b { color: var(--c-primary); }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1 class="page-title">文字效果演示 · 三件套</h1>
+  <p class="page-sub">ReactBits 移植 · Gradient Text / Shiny Text / Scramble Text —— 零依赖，色值走项目 --c-* 变量，未动 frontend/ 任何代码</p>
+
+  <!-- ① Gradient Text -->
+  <div class="card">
+    <h2>① Gradient Text <span class="tag">纯 CSS · 0 行 JS</span></h2>
+    <p class="desc">用于仪表盘大数字与页面主标题。下方大数字即「反馈总数 1286」的落地样式；「反馈改进中枢」为流动渐变版标题（5s 循环）。background-clip: text 一行核心，主色到强调色正好呼应双色视觉。</p>
+    <div class="gradient-demo">
+      <div><div class="gt-num">1,286</div><div class="demo-label">统计卡大数字</div></div>
+      <div><div class="gt-num">98.2%</div><div class="demo-label">处理完成率</div></div>
+      <div style="align-self:center"><div class="gt-title">反馈改进中枢</div><div class="demo-label">页面主标题（流动渐变）</div></div>
+    </div>
+  </div>
+
+  <!-- ② Shiny Text -->
+  <div class="card">
+    <h2>② Shiny Text <span class="tag">纯 CSS · 0 行 JS</span></h2>
+    <p class="desc">用于「活跃/进行中」状态标识：导航选中态、统计卡标签、AI 任务进行中文案。一道高亮周期性从左掠过，比加粗或变色更克制，不动布局。下方导航「仪表盘」为选中态扫光示例。</p>
+    <div class="shiny-demo">
+      <div class="st-nav">
+        <span class="active">仪表盘</span><span>反馈池</span><span>问题看板</span><span>任务</span>
+      </div>
+      <div class="st-stat"><b>12</b><span class="shiny-text">进行中的问题</span></div>
+      <div class="st-stat"><b>58</b><span class="shiny-text">AI 归类中</span></div>
+      <div class="st-stat"><b>3</b><span class="shiny-text">待你确认</span></div>
+    </div>
+  </div>
+
+  <!-- ③ Scramble Text -->
+  <div class="card">
+    <h2>③ Scramble Text <span class="tag">~50 行 JS · rAF</span></h2>
+    <p class="desc">用于 AI 产出的「解码入场」：候选问题标题、验收条件、归类结论出现时，字符从随机乱码滚动定型——语义即「AI 正在生成 → 完成」，与雷达扫描构成一套叙事。点击按钮重播：</p>
+    <div class="scramble-stage">
+      <button class="sc-btn" id="scBtn">▶ 重播 AI 产出解码</button>
+      <div class="sc-lines">
+        <div class="sc-line"><span class="sc-badge">候选问题</span><div class="sc-text" data-text="移动端上传附件失败率偏高（近 7 日 43 例）" data-delay="0"></div></div>
+        <div class="sc-line"><span class="sc-badge">验收条件</span><div class="sc-text" data-text="iOS/Android 端 50MB 内附件上传成功率 ≥ 99%" data-delay="900"></div></div>
+        <div class="sc-line"><span class="sc-badge">归类结论</span><div class="sc-text" data-text="与「网络超时重试」模块相关，建议合并至同一迭代" data-delay="1800"></div></div>
+      </div>
+      <div class="sc-meta" id="scMeta">本地规则模拟 · 接入真实 AI 后行为一致（数据来自 /ai/candidates 接口）</div>
+    </div>
+  </div>
+
+  <div class="footnote">
+    <b>移植到 Vue 的要点</b>：① ② 直接抄 CSS，放 global.css 或组件 scoped 均可；③ 建议封装成
+    <code>&lt;ScrambleText text="..." /&gt;</code> 组件——rAF 循环放 onMounted、cancelAnimationFrame 放
+    onBeforeUnmount（对应 React useEffect cleanup），触发时机用 watch(props.text)。三者的色值一律换成
+    global.css 的 --c-primary / --c-accent，禁止字面色值；prefers-reduced-motion 时三者的动画都应退化为直接显示最终文案。
+  </div>
+</div>
+
+<script>
+/* ============ ③ Scramble Text 实现 ============
+ * 思路：目标文本从左到右逐字「定型」，未定型位置每帧显示随机字符。
+ * 中文字符集取自业务词表，视觉上是「相关领域乱码」而非问号。
+ * rAF 驱动；定型进度按字符数 * 28ms 匀速推进，每行错峰启动。
+ */
+(function () {
+  var POOL = '反馈问题模块任务用户数据系统附件上传失败率迭代合并建议条件确认影响优先级界面交互性能网络异常';
+  var CHAR_STEP_MS = 28;      // 每个字符定型耗时
+  var FLICKER_MS = 46;        // 乱码刷新间隔（省帧）
+
+  function scramble(el, onDone) {
+    var target = el.dataset.text;
+    var start = performance.now();
+    var lastFlicker = 0;
+    el.classList.add('scrambling');
+
+    function frame(now) {
+      var progress = Math.floor((now - start) / CHAR_STEP_MS);
+      if (now - lastFlicker > FLICKER_MS) {
+        lastFlicker = now;
+        var out = '';
+        for (var i = 0; i < target.length; i++) {
+          // 空格与标点不参与乱码，直接保留
+          var ch = target[i];
+          if (i < progress || /[\s（）()、，。≥%/：:-]/.test(ch)) {
+            out += ch;
+          } else {
+            out += POOL[(Math.random() * POOL.length) | 0];
+          }
+        }
+        el.textContent = out;
+      }
+      if (progress < target.length) {
+        el.__raf = requestAnimationFrame(frame);
+      } else {
+        el.textContent = target;
+        el.classList.remove('scrambling');
+        el.classList.add('done');
+        if (onDone) onDone();
+      }
+    }
+    if (el.__raf) cancelAnimationFrame(el.__raf);
+    el.__raf = requestAnimationFrame(frame);
+  }
+
+  function runAll(btn, meta) {
+    btn.disabled = true;
+    meta.textContent = 'AI 正在生成…（provider: rule · 降级文案与真实 AI 一致）';
+    var lines = document.querySelectorAll('.sc-text');
+    var pending = lines.length;
+    lines.forEach(function (el) {
+      el.classList.remove('done');
+      var delay = +el.dataset.delay || 0;
+      setTimeout(function () {
+        scramble(el, function () {
+          if (--pending === 0) {
+            meta.textContent = '✓ 生成完成 · 每次调用均留证（ai_generation_log，append-only）';
+            btn.disabled = false;
+          }
+        });
+      }, delay);
+    });
+  }
+
+  var btn = document.getElementById('scBtn');
+  var meta = document.getElementById('scMeta');
+  btn.addEventListener('click', function () { runAll(btn, meta); });
+  runAll(btn, meta); // 首屏自动播一遍
+})();
+</script>
+</body>
+</html>

@@ -797,7 +797,7 @@ onMounted(loadDetail)
       <template #footer>
         <n-space justify="end">
           <n-button quaternary @click="showAssignModal = false">取消</n-button>
-          <n-button v-spark type="primary" :loading="assignSubmitting" @click="submitAssign">
+          <n-button type="primary" :loading="assignSubmitting" @click="submitAssign">
             确认指派
           </n-button>
         </n-space>
